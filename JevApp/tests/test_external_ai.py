@@ -199,6 +199,38 @@ class BridgeIntegration(unittest.TestCase):
 
 
 class ChoiceChecks(unittest.TestCase):
+    def test_dialog_question_is_distinct_from_mixed_explanation(self):
+        req = request("mixed-dialog")
+        req["observation"]["cards"] = [{"player": 1, "identityVisible": True, "cardId": 123}]
+        cards = CardCatalog({123: {"name": "Twin Twisters", "description": "rules"}})
+        texts = TextCatalog({"DLG": {"33": "@3Destroy@0 another Spell or Trap card?", "581": '"@3%s@0" is activated.'}})
+        choice = {"actionId": "yes", "semanticKind": "yes", "text": "", "cardReferences": [],
+                  "arguments": {"textId": 33, "mixedText": [{"type": 1, "value": 581}, {"type": 5, "value": 123}]}}
+        label = render_choice(choice, req, cards, texts)
+        self.assertIn('"Twin Twisters" is activated.', label)
+        self.assertIn("Destroy another Spell or Trap card?", label)
+        self.assertNotIn("@3", label)
+        req["observation"]["cards"][0]["identityVisible"] = False
+        with self.assertRaisesRegex(ValueError, "unresolved_dialog_substitution"):
+            render_choice(choice, req, cards, texts)
+        req["observation"]["cards"][0]["identityVisible"] = True
+        choice["arguments"]["mixedText"].append({"type": 8, "value": 2})
+        with self.assertRaisesRegex(ValueError, "unsupported_mixed_dialog_text"):
+            render_choice(choice, req, cards, texts)
+
+    def test_game_text_ids_use_indexed_offsets_and_validate_bounds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "en-US").mkdir()
+            for group in ("DLG", "WORD"):
+                (root / "en-US" / f"{group}_Indx.bytes").write_bytes(struct.pack("<III", 0, 4, 12))
+                (root / "en-US" / f"{group}_Text.bytes").write_bytes(b"\0\0\0\0prompt\0\0")
+            texts = TextCatalog.from_game(root)
+            self.assertEqual(texts.resolve("DLG", 1), "prompt")
+            (root / "en-US" / "DLG_Indx.bytes").write_bytes(struct.pack("<III", 0, 100, 12))
+            with self.assertRaisesRegex(ValueError, "invalid_text_offset"):
+                TextCatalog.from_game(root)
+
     def test_hidden_instance_labels_and_unknown_legality(self):
         req = request("labels")
         req["observation"]["selectionContext"] = {"role": "target", "parentDecisionId": None}

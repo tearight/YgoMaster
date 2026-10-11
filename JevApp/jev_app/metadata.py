@@ -53,6 +53,27 @@ class TextCatalog:
         self.texts = texts or {}
 
     @classmethod
+    def from_game(cls, root, language="en-US"):
+        texts = {}
+        for group in ("DLG", "WORD"):
+            directory = Path(root) / language
+            index = (directory / f"{group}_Indx.bytes").read_bytes()
+            raw = (directory / f"{group}_Text.bytes").read_bytes()
+            if len(index) < 8 or len(index) % 4:
+                raise ValueError("invalid_text_index")
+            offsets = struct.unpack(f"<{len(index) // 4}I", index)
+            if offsets[0] != 0 or offsets[-1] != len(raw) or any(a > b for a, b in zip(offsets, offsets[1:])):
+                raise ValueError("invalid_text_offset")
+            entries = {}
+            for string_id, (offset, end) in enumerate(zip(offsets, offsets[1:])):
+                terminator = raw.find(b"\0", offset, end)
+                if terminator == -1:
+                    raise ValueError("unterminated_text")
+                entries[str(string_id)] = raw[offset:terminator].decode("utf-8")
+            texts[group] = entries
+        return cls(texts)
+
+    @classmethod
     def from_json(cls, path):
         # Only verified ID -> text exports; do not assume DLG offsets equal engine IDs.
         data = json.loads(Path(path).read_text(encoding="utf-8-sig"))

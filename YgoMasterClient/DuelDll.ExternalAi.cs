@@ -78,7 +78,10 @@ namespace YgoMasterClient
         static void ExternalAiOnRunEffect(int id, int p1, int p2, int p3)
         {
             if (!externalAiEnabled || !externalAiCpuChanged || externalAiProfile == null || !externalAiProfile.Ready) return;
-            bool input = id == 4 || id == 55 || id == 56;
+            // Discard/Update/Close are view notifications from the hand-selection
+            // state machine (5d7990), not DlgSetResult requests. Selection arrives as WaitInput.
+            bool discardView = id == 55 && (p1 == 16 || p1 == 18 || p1 == 19);
+            bool input = id == 4 || (id == 55 && !discardView) || id == 56;
             if (!input)
             {
                 if (externalAiInput != null && externalAiInput.Submitted && !externalAiProfile.Pending(externalAiInput.EffectId))
@@ -258,6 +261,29 @@ namespace YgoMasterClient
                             });
                     }
                 }
+                else if (p1 == (int)DuelMenuActType.Selection && p2 >= 32 && p2 <= 34)
+                {
+                    // 5d7990 selects one eligible hand card per WaitInput, then decreases
+                    // this count. It does not consume a dialog bitmask or a ranked list.
+                    int remaining = externalAiProfile.Read16(0x3dbc);
+                    if (remaining < 1 || remaining > 128) throw new InvalidOperationException("invalid_discard_count");
+                    selectionContext["role"] = "discard";
+                    selectionContext["remainingCount"] = remaining;
+                    int count = hookDLL_DuelGetCardNum.Original(actor, 13);
+                    if (count < 1 || count > 128) throw new InvalidOperationException("invalid_hand_count");
+                    for (int index = 0; index < count; index++)
+                    {
+                        if ((hookDLL_DuelComGetCommandMask.Original(actor, 13, index) & (1u << (int)DuelCommandType.Decide)) == 0) continue;
+                        int itemIndex = index, uniqueId = hookDLL_DuelGetCardUniqueID.Original(actor, 13, index);
+                        add("discard_" + index, "discard_card", new Dictionary<string, object>(),
+                            new List<object> { ExternalAiCard(actor, 13, index, actor) }, () => {
+                                if (hookDLL_DuelGetCardUniqueID.Original(actor, 13, itemIndex) != uniqueId ||
+                                    (hookDLL_DuelComGetCommandMask.Original(actor, 13, itemIndex) & (1u << (int)DuelCommandType.Decide)) == 0)
+                                    throw new InvalidOperationException("discard_no_longer_legal");
+                                hookDLL_DuelComDoCommand.Original(actor, 13, itemIndex, (int)DuelCommandType.Decide);
+                            });
+                    }
+                }
                 else if (p1 != 2 && p1 != 3 && p1 != 4 && p1 != 5) reason = "unsupported_menu_type";
                 else
                 {
@@ -323,13 +349,20 @@ namespace YgoMasterClient
                 }
                 else if (p1 == (int)DuelDialogType.YesNo)
                 {
-                    uint mixed = (uint)externalAiProfile.Read32(0x3ca4);
-                    if (externalAiProfile.Read32(0x3ca0) != 1 || (mixed >> 28) != (uint)DuelDialogMixTextType.AddString)
-                        reason = "unsupported_mixed_dialog_text";
-                    else for (uint value = 0; value < 2; value++)
+                    int count = externalAiProfile.Read32(0x3ca0);
+                    List<object> parts = new List<object>();
+                    if (count < 0 || count > 4) reason = "unsupported_mixed_dialog_text";
+                    else for (int index = 0; index < count; index++)
+                    {
+                        uint mixed = (uint)externalAiProfile.Read32(0x3ca4 + index * 4);
+                        parts.Add(new Dictionary<string, object> { {"type", (int)(mixed >> 28)}, {"value", (int)(mixed & 0x0fffffffu)} });
+                    }
+                    // p2 is the actual Yes/No question. The mix buffer is its preceding
+                    // explanation; e.g. "Twin Twisters is activated" precedes DLG 33.
+                    if (reason == null) for (uint value = 0; value < 2; value++)
                     {
                         uint selected = value;
-                        add("yesno_" + value, value == 0 ? "no" : "yes", new Dictionary<string, object> { {"textId", (int)(mixed & 0x0fffffffu)}, {"textGroup", "DLG"} },
+                        add("yesno_" + value, value == 0 ? "no" : "yes", new Dictionary<string, object> { {"textId", p2}, {"textGroup", "DLG"}, {"mixedText", parts} },
                             new List<object>(), () => hookDLL_DuelDlgSetResult.Original(selected));
                     }
                 }

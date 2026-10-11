@@ -27,6 +27,36 @@ def card_label(reference, actor, cards):
     return f"{side} {zone} {slot}번째 카드 ‘{name}’"
 
 
+def plain_text(text):
+    return re.sub(r"@[0-9]", "", text)
+
+
+def mixed_dialog_text(parts, request, cards, texts):
+    result = []
+    visible_cards = request["observation"].get("cards", []) + request["observation"].get("selectionContext", {}).get("sourceCards", [])
+    visible_ids = {card.get("cardId") for card in visible_cards if card.get("identityVisible") is True}
+    for part in parts:
+        kind, value = part["type"], part["value"]
+        if kind == 1:  # AddString: engine DLG ID
+            text = texts.resolve("DLG", value)
+            if not text:
+                raise ValueError("unresolved_dialog_text")
+            result.append(plain_text(text))
+        elif kind == 2:  # AddCr
+            result.append("\n")
+        elif kind == 5:  # InsCard: replaces a string placeholder with the displayed card name
+            info = cards.get(value) if value in visible_ids else None
+            if not info or not result or "%s" not in result[-1]:
+                raise ValueError("unresolved_dialog_substitution")
+            result[-1] = result[-1].replace("%s", info["name"], 1)
+        else:
+            raise ValueError("unsupported_mixed_dialog_text")
+    text = "".join(result)
+    if re.search(r"%(?:\d+\$)?[sd]", text):
+        raise ValueError("unresolved_dialog_substitution")
+    return text
+
+
 def render_choice(choice, request, cards, texts):
     kind, args = choice["semanticKind"], choice["arguments"]
     references = choice["cardReferences"]
@@ -46,6 +76,11 @@ def render_choice(choice, request, cards, texts):
         role = request["observation"].get("selectionContext", {}).get("role", "unknown")
         role_label = {"cost": "코스트", "target": "대상", "material": "소재"}.get(role, "카드")
         return f"{role_label}로 선택한다: {card}"
+    if kind == "discard_card" and card:
+        remaining = request["observation"].get("selectionContext", {}).get("remainingCount")
+        if type(remaining) is not int or remaining < 1:
+            raise ValueError("invalid_discard_count")
+        return f"{card}: 버린다 (앞으로 버려야 할 {remaining}장 중 한 장)"
     if kind == "decline":
         return "이 요청에서 효과를 발동하지 않고 진행한다"
     if kind == "check_effects" and args.get("effectPromptType") in (1, 2):
@@ -62,14 +97,15 @@ def render_choice(choice, request, cards, texts):
             raise ValueError("unresolved_dialog_text")
         if re.search(r"%(?:\d+\$)?[sd]", title):
             raise ValueError("unresolved_dialog_substitution")
-        return f"‘{title}’에 {'동의한다' if kind == 'yes' else '동의하지 않는다'}"
+        explanation = mixed_dialog_text(args.get("mixedText", []), request, cards, texts)
+        return f"{explanation + chr(10) if explanation else ''}‘{plain_text(title)}’에 {'동의한다' if kind == 'yes' else '동의하지 않는다'}"
     if kind == "dialog_option":
         text = texts.resolve(args.get("textGroup", "DLG"), args.get("textId"))
         if not text:
             raise ValueError("unresolved_dialog_text")
         if re.search(r"%(?:\d+\$)?[sd]", text):
             raise ValueError("unresolved_dialog_substitution")
-        return text
+        return plain_text(text)
     if kind == "phase" and args.get("phaseName"):
         return f"{args['phaseName']}로 진행한다"
     if kind == "place_card" and type(args.get("position")) is int:

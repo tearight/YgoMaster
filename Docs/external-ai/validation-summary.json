@@ -1,7 +1,7 @@
 {
   "date": "2026-10-11",
   "status": "in_progress",
-  "bridgeAppTestsPassed": 10,
+  "bridgeAppTestsPassed": 12,
   "inputSessionChecksPassed": true,
   "cardCatalogCount": 14323,
   "realJevVerified": false,
@@ -58,6 +58,153 @@
         "laterObservedInGrave": true,
         "parentDecisionLinked": true
       }
+    },
+    {
+      "scenario": "discard-two",
+      "provider": "mock",
+      "exitCode": 0,
+      "normalInitialization": true,
+      "nativeConsumed": 8,
+      "serverApplied": 8,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "98cde6cbfbd89cbedd6c037ce947754973ef30ad92ce14095860d4beacb6e347",
+        "tests/ExternalAi/NativeHost.cs": "c0b2a51043528c3779c02e9e885813cf1d2738e8a5fb357149cb0bdc673c8e80",
+        "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+        "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+        "JevApp/jev_app/app.py": "372b3d69d7abb364225efd59d85c3d0d3be65b2540667d116443a2f1c1ec722a",
+        "JevApp/jev_app/bridge.py": "ed2b7fb50cd1ee57d2381a68cf7f469f4247c923b7f8887b9dfe8e9f0716866d",
+        "JevApp/jev_app/choices.py": "b3b7e8e285cf4591de51a161235cbd285b1be83de974e1f237916b987af754cb",
+        "JevApp/jev_app/context.py": "362b12322e3a9583076ae14a8b22305e606a4596d09e7b457870a5e645b6bfd5",
+        "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+        "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+        "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+        "tests/ExternalAi/ScenarioApp.py": "128d0269e01bd02c1619c6177986da1c25a4d854ca95c1f83514e0983d394f92",
+        "tools/external-ai/run-dll-scenarios.py": "09d09d94db63fba4e25ac86478c1efd5de66f31f513617af061beaee795c60e3"
+      },
+      "scenarioChecks": {
+        "two_distinct_cards_chosen": true,
+        "remaining_count_decreased": true,
+        "non_default_indices_chosen": true,
+        "chosen_cards_reached_grave": true
+      },
+      "cardMovementEvidence": {
+        "selections": [
+          {
+            "role": "discard",
+            "uniqueIds": [
+              75
+            ],
+            "remainingCount": 2
+          },
+          {
+            "role": "discard",
+            "uniqueIds": [
+              63
+            ],
+            "remainingCount": 1
+          }
+        ],
+        "finalGraveUniqueIds": [
+          75,
+          63,
+          65
+        ]
+      }
+    },
+    {
+      "scenario": "twin-target",
+      "provider": "mock",
+      "exitCode": 0,
+      "normalInitialization": true,
+      "nativeConsumed": 20,
+      "serverApplied": 20,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "98cde6cbfbd89cbedd6c037ce947754973ef30ad92ce14095860d4beacb6e347",
+        "tests/ExternalAi/NativeHost.cs": "c0b2a51043528c3779c02e9e885813cf1d2738e8a5fb357149cb0bdc673c8e80",
+        "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+        "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+        "JevApp/jev_app/app.py": "372b3d69d7abb364225efd59d85c3d0d3be65b2540667d116443a2f1c1ec722a",
+        "JevApp/jev_app/bridge.py": "ed2b7fb50cd1ee57d2381a68cf7f469f4247c923b7f8887b9dfe8e9f0716866d",
+        "JevApp/jev_app/choices.py": "b3b7e8e285cf4591de51a161235cbd285b1be83de974e1f237916b987af754cb",
+        "JevApp/jev_app/context.py": "362b12322e3a9583076ae14a8b22305e606a4596d09e7b457870a5e645b6bfd5",
+        "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+        "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+        "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+        "tests/ExternalAi/ScenarioApp.py": "128d0269e01bd02c1619c6177986da1c25a4d854ca95c1f83514e0983d394f92",
+        "tools/external-ai/run-dll-scenarios.py": "09d09d94db63fba4e25ac86478c1efd5de66f31f513617af061beaee795c60e3"
+      },
+      "scenarioChecks": {
+        "cost_card_reached_grave": true,
+        "two_distinct_targets_chosen": true,
+        "both_targets_reached_grave": true,
+        "another_target_confirmed_between_choices": true
+      },
+      "cardMovementEvidence": {
+        "selections": [
+          {
+            "role": "discard",
+            "uniqueIds": [
+              43
+            ],
+            "remainingCount": 1
+          },
+          {
+            "role": "target",
+            "uniqueIds": [
+              65
+            ],
+            "remainingCount": null
+          },
+          {
+            "role": "target",
+            "uniqueIds": [
+              15
+            ],
+            "remainingCount": null
+          }
+        ],
+        "finalGraveUniqueIds": [
+          43,
+          65,
+          15,
+          57
+        ]
+      }
     }
+  ],
+  "textCatalogCounts": {
+    "DLG": 785,
+    "WORD": 257
+  },
+  "sequentialDiscardVerified": true,
+  "twoTargetWithDiscardCostVerified": true,
+  "supportedMixedTextTypes": [
+    1,
+    2,
+    5
+  ],
+  "normalDuelVerifiedMixedTextTypes": [
+    1,
+    5
   ]
 }

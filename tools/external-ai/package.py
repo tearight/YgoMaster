@@ -26,6 +26,7 @@ def main():
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     manifest = {"commit": commit, "stage": "experimental; real Jev and injected UI integration not yet verified",
                 "files": {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}}
+    manifest["files"]["START-HERE.txt"] = hashlib.sha256((ROOT / "Docs/external-ai/START-HERE.txt").read_bytes()).hexdigest()
     output = Path(args.output).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:

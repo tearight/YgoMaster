@@ -15,6 +15,37 @@ sys.path.insert(0, str(ROOT / "JevApp"))
 from jev_app.bridge import BridgeClient
 
 
+def scenario_checks(summary, records, scenario):
+    if summary is None or scenario not in ("discard-two", "twin-target"):
+        return {}
+    applied = [record for record in records if record["state"] == "applied"]
+    def selections(role):
+        values = []
+        for record in applied:
+            req = record["request"]
+            if req["observation"].get("selectionContext", {}).get("role") != role:
+                continue
+            selected = set(record["decision"]["actionIds"])
+            for choice in req["choices"]:
+                if choice["actionId"] in selected:
+                    values.append((req, choice["cardReferences"][0]))
+        return values
+    discards = selections("discard")
+    grave = {card["uniqueId"] for card in summary["finalCards"] if card["position"] == 16}
+    if scenario == "discard-two":
+        chosen = discards[:2]
+        return {"two_distinct_cards_chosen": len({card["uniqueId"] for req, card in chosen}) == 2,
+                "remaining_count_decreased": [req["observation"]["selectionContext"]["remainingCount"] for req, card in chosen] == [2, 1],
+                "non_default_indices_chosen": len(chosen) == 2 and all(card["index"] > 0 for req, card in chosen),
+                "chosen_cards_reached_grave": len(chosen) == 2 and all(card["uniqueId"] in grave for req, card in chosen)}
+    targets = selections("target")[:2]
+    more = [record["request"]["requestSequence"] for record in applied if record["decision"]["actionIds"] == ["yesno_1"]]
+    return {"cost_card_reached_grave": bool(discards) and discards[0][1]["uniqueId"] in grave,
+            "two_distinct_targets_chosen": len({card["uniqueId"] for req, card in targets}) == 2,
+            "both_targets_reached_grave": len(targets) == 2 and all(card["uniqueId"] in grave for req, card in targets),
+            "another_target_confirmed_between_choices": len(targets) == 2 and any(targets[0][0]["requestSequence"] < seq < targets[1][0]["requestSequence"] for seq in more)}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dll", required=True)
@@ -23,7 +54,7 @@ def main():
     parser.add_argument("--provider", choices=("mock", "jev"), default="mock")
     parser.add_argument("--decisions", type=int, default=8)
     parser.add_argument("--timeout", type=int, default=60)
-    parser.add_argument("--scenario", choices=("basic", "spell-target"), default="basic")
+    parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target"), default="basic")
     args = parser.parse_args()
     if not 1 <= args.decisions <= 100 or not 5 <= args.timeout <= 600:
         parser.error("decisions must be 1..100 and timeout must be 5..600 seconds")
@@ -37,6 +68,8 @@ def main():
                "YgoMasterClient/DuelDll.ExternalAi.cs", "tests/ExternalAi/NativeHost.cs"]
     compiler = Path(os.environ["WINDIR"]) / "Microsoft.NET/Framework64/v4.0.30319/csc.exe"
     source_hashes = {source: hashlib.sha256((ROOT / source).read_bytes()).hexdigest() for source in sources}
+    for path in [*sorted((ROOT / "JevApp/jev_app").glob("*.py")), ROOT / "tests/ExternalAi/ScenarioApp.py", Path(__file__)]:
+        source_hashes[path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     subprocess.run([str(compiler), "/nologo", "/unsafe", "/platform:x64", "/r:System.Web.Extensions.dll", f"/out:{host}",
                     *(str(ROOT / source) for source in sources)], cwd=ROOT, check=True)
     with socket.socket() as sock:
@@ -60,8 +93,11 @@ def main():
             else:
                 raise RuntimeError("bridge readiness timed out")
             child_env = dict(os.environ, PYTHONIOENCODING="utf-8")
-            app = subprocess.Popen([sys.executable, "-u", "-m", "jev_app", "--bridge-config", str(config), "--provider", args.provider,
-                                    "--card-data", args.data], cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
+            app_command = [sys.executable, "-u", "-m", "jev_app", "--provider", args.provider]
+            if args.provider == "mock" and args.scenario in ("discard-two", "twin-target"):
+                app_command = [sys.executable, "-u", str(ROOT / "tests/ExternalAi/ScenarioApp.py"), "--scenario", args.scenario]
+            app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],
+                                   cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
             processes.append(app)
             completed = subprocess.run([str(host), args.dll, args.data, str(config), str(args.decisions), str(args.timeout), args.scenario],
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=args.timeout + 15)
@@ -69,13 +105,15 @@ def main():
             (output / "native.log").write_text(text, encoding="utf-8")
             summary = next((json.loads(line[8:]) for line in text.splitlines() if line.startswith("SUMMARY ")), None)
             records = [] if summary is None else [bridge.get(r["decisionId"]) for r in summary["requests"]]
+            checks = scenario_checks(summary, records, args.scenario)
+            exit_code = completed.returncode if completed.returncode else (0 if all(checks.values()) else 4)
             evidence = {"scope": "isolated normal duel, production decoder/controller/worker, no UI or injected hook",
-                        "provider": args.provider, "scenario": args.scenario, "exitCode": completed.returncode, "sourceHashes": source_hashes,
-                        "native": summary, "bridgeRecords": records}
+                        "provider": args.provider, "scenario": args.scenario, "exitCode": exit_code, "sourceHashes": source_hashes,
+                        "native": summary, "bridgeRecords": records, "scenarioChecks": checks}
             (output / "result.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
-            print(json.dumps({"exitCode": completed.returncode, "nativeConsumed": len(summary["consumedIds"]) if summary else 0,
+            print(json.dumps({"exitCode": exit_code, "nativeConsumed": len(summary["consumedIds"]) if summary else 0,
                               "serverApplied": sum(r["state"] == "applied" for r in records), "output": str(output)}))
-            return completed.returncode
+            return exit_code
         finally:
             for process in reversed(processes):
                 if process.poll() is None:

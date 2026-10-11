@@ -92,6 +92,31 @@ namespace YgoMasterClient
                     if (hookDLL_DuelGetCardNum.Original(player, pos) > 0)
                         Console.WriteLine("FACE " + player + " " + pos + " " + hookDLL_DuelGetCardFace.Original(player, pos, 0));
                 Console.WriteLine("REQUEST " + Protocol.Serialize(externalAiInput.Request));
+                if (externalAiInput.EffectId == 4 && externalAiProfile.Read32(0x3cd0) == 8)
+                {
+                    int actor = externalAiProfile.Actor(4), count = hookDLL_DuelGetCardNum.Original(actor, 13);
+                    Console.WriteLine("HAND_SELECTION_STATE " + Protocol.Serialize(new Dictionary<string, object> {
+                        {"kind", externalAiProfile.Read32(0x3cec)}, {"remaining", externalAiProfile.Read16(0x3dbc)},
+                        {"masks", Enumerable.Range(0, count).Select(i => hookDLL_DuelComGetCommandMask.Original(actor, 13, i)).ToArray()}
+                    }));
+                }
+                if (externalAiInput.EffectId == 56 || externalAiInput.EffectId == 55)
+                {
+                    int mixCount = externalAiProfile.Read32(0x3ca0);
+                    int itemCount = hookDLL_DuelListGetItemMax.Original();
+                    List<object> items = new List<object>();
+                    if (externalAiInput.EffectId == 56 && itemCount >= 0 && itemCount <= 300)
+                        for (int i = 0; i < itemCount; i++) items.Add(new Dictionary<string, object> {
+                            {"id", hookDLL_DuelListGetItemID.Original(i)}, {"uid", hookDLL_DuelListGetItemUniqueID.Original(i)},
+                            {"attribute", hookDLL_DuelListGetItemAttribute.Original(i)},
+                            {"from", Bind<Get1>("DLL_DuelListGetItemFrom")(i)}, {"message", Bind<Get1>("DLL_DuelListGetItemMsg")(i)}
+                        });
+                    Console.WriteLine("INPUT_STATE " + Protocol.Serialize(new Dictionary<string, object> {
+                        {"listType", externalAiProfile.ListType}, {"mixCount", mixCount},
+                        {"mixParts", Enumerable.Range(0, Math.Max(0, Math.Min(4, mixCount))).Select(i => (uint)externalAiProfile.Read32(0x3ca4 + i * 4)).ToArray()},
+                        {"defaultResult", externalAiProfile.Read32(0x3c9c)}, {"items", items}
+                    }));
+                }
             }
         }
         static Run callback = (id, a, b, c) =>
@@ -157,7 +182,8 @@ namespace YgoMasterClient
             Bind<SetUInt>("DLL_DuelSetRandomSeed")(1234);
             SetDeck deck = Bind<SetDeck>("DLL_DuelSysSetDeck2");
             string scenario = args[5];
-            int[] main = Enumerable.Repeat(scenario == "spell-target" ? 4909 : 4084, 40).ToArray();
+            int cardId = scenario == "spell-target" ? 4909 : scenario == "discard-two" ? 4812 : scenario == "twin-target" ? 12175 : 4084;
+            int[] main = Enumerable.Repeat(cardId, 40).ToArray();
             deck(0, main, main.Length, new int[0], 0, new int[0], 0); deck(1, main, main.Length, new int[0], 0, new int[0], 0);
             hookDLL_DuelSetPlayerType.Original(0, 1);
             hookDLL_DuelSetPlayerType.Original(1, ExternalAiPlayerType(1, 1));
@@ -169,6 +195,7 @@ namespace YgoMasterClient
             while (watch.Elapsed < TimeSpan.FromSeconds(timeoutSeconds) && consumed.Count < decisionCount)
             {
                 ExternalAiBeforeSysAct();
+                if (!externalAiEnabled) break;
                 Action[] queued;
                 lock (ActionsToRunInNextSysAct) { queued = ActionsToRunInNextSysAct.ToArray(); ActionsToRunInNextSysAct.Clear(); }
                 foreach (Action action in queued) action();
@@ -177,10 +204,14 @@ namespace YgoMasterClient
                 if (result != 0) break;
                 Thread.Sleep(5);
             }
+            List<object> finalCards = new List<object>();
+            for (int pos = 0; pos < 18; pos++) if (pos != 15)
+                for (int index = 0; index < hookDLL_DuelGetCardNum.Original(RivalID, pos); index++)
+                    finalCards.Add(ExternalAiCard(RivalID, pos, index, RivalID));
             Console.WriteLine("SUMMARY " + Protocol.Serialize(new Dictionary<string, object> {
                 {"normalInitialization", true}, {"profileSha256", EngineProfile.Sha256}, {"requests", requests},
                 {"consumedIds", consumed.ToArray()}, {"targetPlayerType", externalAiProfile.Read32(0x2c5cbc + 12)},
-                {"elapsedSeconds", watch.Elapsed.TotalSeconds}, {"gameProcessInjected", false}
+                {"elapsedSeconds", watch.Elapsed.TotalSeconds}, {"gameProcessInjected", false}, {"finalCards", finalCards}
             }));
             Thread.Sleep(1500);
             externalAiWorker.Dispose();

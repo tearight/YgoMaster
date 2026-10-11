@@ -14,7 +14,8 @@ def main():
     parser.add_argument("--text-catalog", help="확인된 문자열 ID -> 문구 JSON")
     args = parser.parse_args()
     cards = CardCatalog.from_game(args.card_data, args.language) if args.card_data else CardCatalog()
-    texts = TextCatalog.from_json(args.text_catalog) if args.text_catalog else TextCatalog()
+    texts = (TextCatalog.from_json(args.text_catalog) if args.text_catalog else
+             TextCatalog.from_game(args.card_data, args.language) if args.card_data else TextCatalog())
     provider = JevProvider() if args.provider == "jev" else MockProvider()
     try:
         DecisionApp(BridgeClient(args.bridge_config), provider, cards, texts).run()
