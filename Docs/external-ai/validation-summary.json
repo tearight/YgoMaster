@@ -1,7 +1,7 @@
 {
   "date": "2026-10-11",
   "status": "in_progress",
-  "bridgeAppTestsPassed": 14,
+  "bridgeAppTestsPassed": 15,
   "inputSessionChecksPassed": true,
   "cardCatalogCount": 14323,
   "realJevVerified": false,
@@ -784,5 +784,33 @@
     "sameDuelGenerationActorOnly": true,
     "appliedBeforeCurrentSequenceOnly": true,
     "persistentAfterServerRestart": false
+  },
+  "bridgeResponseBoundsVerified": true,
+  "currentBridgeVerification": {
+    "testsPassed": 15,
+    "serverExecutableSha256": "8aa28a4bd096c0c14c92cb694a9677a01dd2730d71e886c503e7cba257cdb556",
+    "sourceHashes": {
+      "YgoMasterServer/ExternalAi/DecisionStore.cs": "4eee69b8b8268f18fc536caff6c3e3858ff7163f43aacbc690fb4e18edd4956f",
+      "YgoMasterServer/ExternalAi/DecisionBridge.cs": "3abd1123a8361c7a3d54e204a3279cb38d1e1ff700063bc137c4d17ea8b983f6",
+      "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+      "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+      "JevApp/tests/test_external_ai.py": "ab2a572b0e9749e24f1059144de84371127cdb4062bcc846801fe9d6d49439e4",
+      "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+      "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+      "JevApp/jev_app/app.py": "9496621c9b0fa8246231927b085b2d6eda2e00faea837e181e90f3abfed5b0d4",
+      "JevApp/jev_app/bridge.py": "f1afc4c3d1c662f28be95a30da7d395a7dcbe9d572f41bcd68b506ea8682a6e5",
+      "JevApp/jev_app/choices.py": "31388c3e96d3787d27c99c8f8c68e200326a899e4ae8293dec888237c85368ca",
+      "JevApp/jev_app/context.py": "820132ab2ac76d9d61a6e0c969c6390eb482e463e7e33fb51e173d4d7dc292d2",
+      "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+      "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+      "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d"
+    },
+    "testLogSha256": "cda74456bb1abaceae675c2fc69fbbfe2e07d47138083a9d0be51990fc6f3718",
+    "largePendingRequestsSequentiallyProcessed": 2,
+    "requestPaddingBytesEach": 600000,
+    "maxResponseBytes": 1048576,
+    "oversizedDecisionRejectedBeforeMutation": true,
+    "oversizedRecordRejectedBeforePublication": true,
+    "nativeTestsRepeated": false
   }
 }

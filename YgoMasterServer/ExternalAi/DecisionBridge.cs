@@ -87,6 +87,7 @@ namespace YgoMaster.ExternalAi
         static void Reply(HttpListenerContext context, int status, object value)
         {
             byte[] bytes = Encoding.UTF8.GetBytes(Protocol.Serialize(value));
+            if (bytes.Length > BridgeConfig.MaxBodyBytes) throw new ProtocolException("response_too_large", 413);
             context.Response.StatusCode = status; context.Response.ContentType = "application/json; charset=utf-8";
             context.Response.ContentLength64 = bytes.Length;
             try { context.Response.OutputStream.Write(bytes, 0, bytes.Length); }

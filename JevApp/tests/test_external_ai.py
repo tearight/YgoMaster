@@ -221,6 +221,32 @@ class BridgeIntegration(unittest.TestCase):
         self.assertTrue(snapshot["historyLimited"])
         self.bridge.call("v1/duels/end", {key: current[key] for key in IDENTITY})
 
+    def test_pending_batches_large_requests_without_losing_work(self):
+        requests = [request(f"large-pending-{index}") for index in range(2)]
+        try:
+            for req in requests:
+                req["choices"][0]["arguments"]["padding"] = "x" * 600000
+                self.bridge.call("v1/requests", req)
+            oversized = decision(requests[0])
+            oversized["padding"] = "x" * 600000
+            self.assert_http(413, "v1/decisions", oversized)
+            self.assertEqual(self.bridge.get(requests[0]["decisionId"])["state"], "pending")
+            for req in requests:
+                pending = self.bridge.pending()
+                self.assertEqual([row["request"]["decisionId"] for row in pending], [req["decisionId"]])
+                self.assertLessEqual(len(json.dumps({"records": pending}, ensure_ascii=False).encode()), 1048576)
+                self.bridge.publish_decision(decision(req))
+                self.bridge.call("v1/acks", dict({key: req[key] for key in IDENTITY}, state="applied", reason="test_engine_consumed"))
+            self.assertEqual(self.bridge.pending(), [])
+            tight = request("pending-envelope-too-large")
+            tight["choices"][0]["arguments"]["padding"] = ""
+            tight["choices"][0]["arguments"]["padding"] = "x" * (1048576 - len(json.dumps(tight, ensure_ascii=False).encode()) - 32)
+            self.assert_http(413, "v1/requests", tight)
+            self.assert_http(409, "v1/requests/" + tight["decisionId"], None)
+        finally:
+            for req in requests:
+                self.bridge.call("v1/duels/end", {key: req[key] for key in IDENTITY})
+
     def test_app_reports_unsupported_request_to_bridge(self):
         req = request("unrenderable")
         req["rawRequest"]["decodeStatus"] = "unsupported"

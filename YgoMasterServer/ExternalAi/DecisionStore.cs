@@ -15,10 +15,13 @@ namespace YgoMaster.ExternalAi
             public DateTime Updated;
             public Dictionary<string, object> Snapshot()
             {
-                return Protocol.Copy(new Dictionary<string, object> {
+                string serialized = Protocol.Serialize(new Dictionary<string, object> {
                     {"request", Request}, {"decision", Response}, {"state", State},
                     {"reason", Reason}, {"updatedAt", Updated.ToString("o")}
                 });
+                if (Encoding.UTF8.GetByteCount(serialized) > BridgeConfig.MaxBodyBytes)
+                    throw new ProtocolException("record_too_large", 413);
+                return Protocol.Parse(serialized);
             }
         }
         sealed class DuelState { public long Generation, Sequence; public bool Ended; public DateTime Updated; }
@@ -42,6 +45,12 @@ namespace YgoMaster.ExternalAi
             Record record;
             if (!records.TryGetValue(decisionId, out record)) throw new ProtocolException("unknown_decision", 409);
             return record;
+        }
+        static void CheckSnapshotSize(Dictionary<string, object> snapshot)
+        {
+            // Leave room for the pending envelope and fixed lifecycle reason/state changes.
+            if (Encoding.UTF8.GetByteCount(Protocol.Serialize(snapshot)) > BridgeConfig.MaxBodyBytes - 128)
+                throw new ProtocolException("record_too_large", 413);
         }
         public Dictionary<string, object> Publish(Dictionary<string, object> input, DateTime now)
         {
@@ -69,6 +78,9 @@ namespace YgoMaster.ExternalAi
                 int activeDuels = records.Values.Where(Active).Select(x => Protocol.Text(x.Request, "duelId")).Distinct().Count();
                 if (records.Values.Count(Active) >= 64 || (activeDuels >= 8 && !records.Values.Any(x => Active(x) && Protocol.Text(x.Request, "duelId") == duelId)))
                     throw new ProtocolException("bridge_capacity", 429);
+                Record record = new Record { Request = request, Fingerprint = fingerprint, Updated = now };
+                Dictionary<string, object> snapshot = record.Snapshot();
+                CheckSnapshotSize(snapshot);
                 if (duel == null || generation > duel.Generation)
                 {
                     foreach (Record old in records.Values.Where(x => Active(x) && Protocol.Text(x.Request, "duelId") == duelId))
@@ -76,14 +88,26 @@ namespace YgoMaster.ExternalAi
                     duel = new DuelState { Generation = generation }; duels[duelId] = duel;
                 }
                 duel.Sequence = sequence; duel.Updated = now;
-                Record record = new Record { Request = request, Fingerprint = fingerprint, Updated = now };
                 records.Add(id, record);
-                return record.Snapshot();
+                return snapshot;
             }
         }
         public IList<object> Pending(DateTime now)
         {
-            lock (gate) { Prune(now); return records.Values.Where(x => x.State == "pending").OrderBy(x => x.Updated).Select(x => (object)x.Snapshot()).ToList(); }
+            lock (gate)
+            {
+                Prune(now);
+                List<object> batch = new List<object>();
+                int bytes = Encoding.UTF8.GetByteCount(Protocol.Serialize(new Dictionary<string, object> {{"records", batch}}));
+                foreach (Record record in records.Values.Where(x => x.State == "pending").OrderBy(x => x.Updated))
+                {
+                    Dictionary<string, object> snapshot = record.Snapshot();
+                    int entryBytes = Encoding.UTF8.GetByteCount(Protocol.Serialize(snapshot)) + 1;
+                    if (bytes + entryBytes > BridgeConfig.MaxBodyBytes) break;
+                    batch.Add(snapshot); bytes += entryBytes;
+                }
+                return batch;
+            }
         }
         public Dictionary<string, object> Get(string decisionId, DateTime now)
         {
@@ -144,6 +168,9 @@ namespace YgoMaster.ExternalAi
                     return record.Snapshot();
                 }
                 if (record.State != "pending") throw new ProtocolException("decision_" + record.State, 409);
+                Dictionary<string, object> snapshot = record.Snapshot();
+                snapshot["decision"] = response; snapshot["state"] = "accepted";
+                CheckSnapshotSize(snapshot);
                 record.Response = response; record.State = "accepted"; record.Updated = now;
                 return record.Snapshot();
             }
@@ -165,6 +192,9 @@ namespace YgoMaster.ExternalAi
                     return record.Snapshot();
                 }
                 if (!Active(record) || (state == "applied" && record.State != "accepted")) throw new ProtocolException("invalid_ack_transition", 409);
+                Dictionary<string, object> snapshot = record.Snapshot();
+                snapshot["state"] = state; snapshot["reason"] = reason;
+                CheckSnapshotSize(snapshot);
                 record.State = state; record.Reason = reason; record.Updated = now;
                 return record.Snapshot();
             }
