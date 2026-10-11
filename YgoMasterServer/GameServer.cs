@@ -17,12 +17,18 @@ namespace YgoMaster
         Thread updateThread;
         HttpListener listener;
         Net.NetServer sessionServer;
+        ExternalAi.DecisionBridge externalAiBridge;
 
         public void Start()
         {
             try
             {
                 LoadSettings();
+                if (!string.IsNullOrEmpty(Program.ExternalAiConfigPath))
+                {
+                    externalAiBridge = new ExternalAi.DecisionBridge(ExternalAi.BridgeConfig.Load(Program.ExternalAiConfigPath));
+                    externalAiBridge.Start();
+                }
             }
             catch (Exception e)
             {

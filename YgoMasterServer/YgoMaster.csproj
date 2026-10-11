@@ -38,6 +38,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -47,6 +48,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Acts\Act_Billing.cs" />
+    <Compile Include="..\ExternalAi\Protocol.cs"><Link>ExternalAi\Protocol.cs</Link></Compile>
+    <Compile Include="..\ExternalAi\BridgeConfig.cs"><Link>ExternalAi\BridgeConfig.cs</Link></Compile>
+    <Compile Include="ExternalAi\DecisionStore.cs" />
+    <Compile Include="ExternalAi\DecisionBridge.cs" />
     <Compile Include="Acts\Act_CardFile.cs" />
     <Compile Include="Acts\Act_Craft.cs" />
     <Compile Include="Acts\Act_Duel.cs" />

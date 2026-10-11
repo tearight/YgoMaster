@@ -1631,7 +1631,7 @@ namespace YgoMasterClient
             }
             else
             {
-                hookDLL_DuelSetPlayerType.Original(player, type);
+                hookDLL_DuelSetPlayerType.Original(player, ExternalAiPlayerType(player, type));
             }
         }
 
@@ -1810,6 +1810,7 @@ namespace YgoMasterClient
 
         static int DLL_SetWorkMemory(IntPtr pWork)
         {
+            if (externalAiProfile != null && pWork != IntPtr.Zero) externalAiProfile.SetWork(pWork);
             if (IsPvpDuel)
             {
                 // TODO

@@ -33,6 +33,7 @@ namespace YgoMaster
     class Program
     {
         public static bool IsMonoRun;
+        public static string ExternalAiConfigPath;
 
         internal static int Main(string[] args)
         {
@@ -41,6 +42,26 @@ namespace YgoMaster
             if (IsMonoRun)
             {
                 args = ProcessCommandLine.GetCommandLineArgs().Skip(2).ToArray();
+            }
+
+            for (int i = 0; i < args.Length; i++)
+                if (args[i] == "--external-ai-config" && i + 1 < args.Length) ExternalAiConfigPath = args[++i];
+            if (args.Contains("--external-ai-bridge-only"))
+            {
+                if (string.IsNullOrEmpty(ExternalAiConfigPath)) { Console.Error.WriteLine("External AI config required"); return 2; }
+                try
+                {
+                    ExternalAi.BridgeConfig config = ExternalAi.BridgeConfig.Load(ExternalAiConfigPath);
+                    if (!config.Enabled) { Console.Error.WriteLine("External AI bridge is disabled in config"); return 2; }
+                    using (ExternalAi.DecisionBridge bridge = new ExternalAi.DecisionBridge(config))
+                    {
+                        bridge.Start();
+                        Console.WriteLine("External AI bridge ready");
+                        Process.GetCurrentProcess().WaitForExit();
+                    }
+                    return 0;
+                }
+                catch { Console.Error.WriteLine("External AI bridge could not start; check config and local port binding"); return 2; }
             }
 
             for (int i = 0; i < args.Length; i++)

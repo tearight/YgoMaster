@@ -40,6 +40,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
@@ -68,6 +69,12 @@
     <Compile Include="YgoMasterClient\TradeUtils.cs" />
     <Compile Include="YgoMasterClient\ClientSettings.Text.cs" />
     <Compile Include="YgoMasterClient\DuelDll.cs" />
+    <Compile Include="ExternalAi\Protocol.cs" />
+    <Compile Include="ExternalAi\BridgeConfig.cs" />
+    <Compile Include="YgoMasterClient\DuelDll.ExternalAi.cs" />
+    <Compile Include="YgoMasterClient\ExternalAi\EngineProfile.cs" />
+    <Compile Include="YgoMasterClient\ExternalAi\InputSession.cs" />
+    <Compile Include="YgoMasterClient\ExternalAi\BridgeWorker.cs" />
     <Compile Include="YgoMasterClient\ActionSheetViewController.cs" />
     <Compile Include="YgoMasterClient\AssetHelper.cs" />
     <Compile Include="YgoMasterClient\AssetHelper.Solo.cs" />

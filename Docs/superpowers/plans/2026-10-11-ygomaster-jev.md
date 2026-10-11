@@ -1,6 +1,6 @@
 # YgoMaster 외부 Jev AI Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 승인 당시의 구현 계획 기록이다. 현재 산출물·지원 범위·검증 상태는 `Docs/external-ai/README.md`와 `coverage.md`를 기준으로 확인한다. 파일을 잘게 나눈 DTO·검사 대신 공용 JSON 검증과 Python 표준 라이브러리 검사로 구현했다. 아래의 미체크 항목은 완료 증거가 아니다.
 
 **Goal:** YgoMaster DLL 훅의 입력 요청을 서버와 별도 Jev 앱에 연결하고, 듀얼 맥락과 규칙 기반 자연어 선택지를 통해 받은 결정을 원래 CPU 대신 엔진에 적용한다.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** upstream C#/.NET Framework 4.8, 기존 MiniJSON/HttpListener/Hook, Python 3 표준 라이브러리 unittest/urllib/json, Jev HTTP API.
 
-**Spec:** 같은 폴더의 `ygomaster-jev-design-review.txt` — 2026-10-11 사용자 승인. 실행 시 두 문서를 fork의 `docs/superpowers/specs/2026-10-11-ygomaster-jev.md`, `docs/superpowers/plans/2026-10-11-ygomaster-jev.md`에 옮긴다.
+**Spec:** 같은 폴더의 `ygomaster-jev-design-review.txt` — 2026-10-11 사용자 승인. 실행 시 두 문서를 fork의 `Docs/superpowers/specs/2026-10-11-ygomaster-jev.md`, `Docs/superpowers/plans/2026-10-11-ygomaster-jev.md`에 옮긴다.
 
 ## Global Constraints
 
@@ -224,7 +224,7 @@ Check(fakeBridge.LastAck.State == "rejected", "stale result rejected");
 - [ ] **Step 2:** native 함수 대신 주입한 최소 engine adapter를 사용하는 controller/decoder 테스트가 실패함을 확인한다. 기존 Hook/큐를 복제한 다른 runtime을 제품에 추가하지 않는다.
 - [ ] **Step 3:** EngineProfile과 decoder를 구현한다. WaitInput menu는 Main+3CD0, actor는 Main+3D00; dialog actor+3C98/request+3C94; list pointer는 확인된 work+3DD0로 구분한다. 메뉴 actor에 RecommendSide를 범용 getter로 쓰지 않는다. DLL 카드 text stub 대신 앱 metadata를 사용한다.
 - [ ] **Step 4:** player type 훅, RunEffect, IsBusyEffect, ClearState/duel init, SysAct 전후에 partial 함수 호출을 연결한다. hold를 원래 callback 전에 설정해 phase default result 조기 소비를 막는다. 원래 표시 callback/busy를 보존하고 외부 소유 입력의 자동 UI setter가 경합하지 않도록 기존 입력 훅에서 소유 검사한다. UI 소유가 아직 미검증이면 활성화를 제한하고 Task 6에서 해결한다.
-- [ ] **Step 5:** 네트워크 worker와 SysAct 큐를 연결한다. 큐의 lock 안에서는 복사만 하고 실행은 엔진 스레드에서 한다. 명령은 mask→enum 명시 매핑, dialog는 원래 slot/값, list는 0부터 연속 rank와 count로 적용한다. setter 실행 후 SysAct/요청 전환에서 실제 소비를 확인해 applied ack를 보낸다. 소비가 확인되지 않으면 accepted를 유지한다.
+- [ ] **Step 5:** 네트워크 worker와 SysAct 큐를 연결한다. 큐의 lock 안에서는 복사만 하고 실행은 엔진 스레드에서 한다. 명령은 mask→enum 명시 매핑, dialog는 원래 slot/값, list는 미선택 rank 0, 선택 rank 1부터 연속 순위와 count로 적용한다. setter 실행 후 SysAct/요청 전환에서 실제 소비를 확인해 applied ack를 보낸다. 소비가 확인되지 않으면 accepted를 유지한다.
 - [ ] **Step 6:** `& tools/external-ai/build-tests.ps1 -Suite Client`와 실제 client C# 빌드, 기존 server/app contract 검사 중 변경 영향이 있는 것만 실행한다. task 파일 commit. 합성 engine adapter 검사와 실제 DLL 검사를 구별한다.
 
 ## Task 6: 정상 초기화 DLL에서 입력·CPU 우회 계약 확인

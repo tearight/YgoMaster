@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "prefix": "http://127.0.0.1:49172/",
+  "tokenFile": "external-ai.token",
+  "deadlineSeconds": 120
+}

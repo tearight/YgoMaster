@@ -167,6 +167,7 @@ namespace YgoMasterClient
             DLL_DuelComDebugCommand = Utils.GetFunc<Del_DLL_DuelComDebugCommand>(PInvoke.GetProcAddress(lib, "DLL_DuelComDebugCommand"));
 
             DLL_SetAddRecordDelegate = Utils.GetFunc<Del_DLL_SetAddRecordDelegate>(PInvoke.GetProcAddress(lib, "DLL_SetAddRecordDelegate"));
+            ExternalAiInit(lib);
         }
 
         static void Log(string str)
@@ -232,6 +233,7 @@ namespace YgoMasterClient
             IsPvpSpectator = Program.NetClient != null && gameMode == GameMode.Audience;
             SpectatorCount = 0;
             MyID = YgomSystem.Utility.ClientWork.GetByJsonPath<int>("Duel.MyID");
+            ExternalAiBegin(gameMode);
             SendLiveRecordData = YgomSystem.Utility.ClientWork.GetByJsonPath<bool>("Duel.SendLiveRecordData");
             IsInsideDuelTimerPrepareToDuel = false;
 
@@ -269,6 +271,7 @@ namespace YgoMasterClient
 
         public static void OnDuelEnd()
         {
+            ExternalAiEnd();
             PvpSpectatorRapidState = PvpSpectatorRapidState.None;
             engineInstance = IntPtr.Zero;
             engineInstanceReplayStream = IntPtr.Zero;
@@ -413,6 +416,7 @@ namespace YgoMasterClient
 
         static int RunEffect(int id, int param1, int param2, int param3)
         {
+            ExternalAiOnRunEffect(id, param1, param2, param3);
             if (IsPvpDuel || IsPvpSpectator)
             {
                 DuelEmoteHelper.OnRunEffect((DuelViewType)id, param1, param2, param3);
@@ -457,6 +461,7 @@ namespace YgoMasterClient
 
         static int IsBusyEffect(int id)
         {
+            if (ExternalAiBusy(id) != 0) return 1;
             if (HasNetworkError || SpecialFinishType != DuelFinishType.None)
             {
                 return originalIsBusyEffect(id);
@@ -466,6 +471,7 @@ namespace YgoMasterClient
 
         public static int DLL_DuelSysAct()
         {
+            ExternalAiBeforeSysAct();
             if (IsPvpDuel || IsPvpSpectator)
             {
                 if (LastSysActLogTime < DateTime.UtcNow - TimeSpan.FromSeconds(3))
@@ -646,19 +652,7 @@ namespace YgoMasterClient
                     }
                 }
 
-                if (ActionsToRunInNextSysAct.Count > 0)
-                {
-                    List<Action> actionsToRun;
-                    lock (ActionsToRunInNextSysAct)
-                    {
-                        actionsToRun = new List<Action>(ActionsToRunInNextSysAct);
-                        ActionsToRunInNextSysAct.Clear();
-                    }
-                    foreach (Action action in actionsToRun)
-                    {
-                        action();
-                    }
-                }
+                RunQueuedSysActActions();
 
                 if ((HasNetworkError || SpecialFinishType != DuelFinishType.None) && HasDuelStart)
                 {
@@ -670,11 +664,27 @@ namespace YgoMasterClient
                     return 0;
                 }
             }
-            return hookDLL_DuelSysAct.Original();
+            if (!IsPvpDuel && !IsPvpSpectator) RunQueuedSysActActions();
+            int result = hookDLL_DuelSysAct.Original();
+            ExternalAiAfterSysAct(result);
+            return result;
+        }
+
+        static void RunQueuedSysActActions()
+        {
+            List<Action> actionsToRun;
+            lock (ActionsToRunInNextSysAct)
+            {
+                if (ActionsToRunInNextSysAct.Count == 0) return;
+                actionsToRun = new List<Action>(ActionsToRunInNextSysAct);
+                ActionsToRunInNextSysAct.Clear();
+            }
+            foreach (Action action in actionsToRun) action();
         }
 
         static void DLL_DuelComMovePhase(int phase)
         {
+            if (ExternalAiOwnsInput) return;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelComMovePhase phase:" + phase + " seq:" + RunEffectSeq);
@@ -689,6 +699,7 @@ namespace YgoMasterClient
 
         public static void DLL_DuelComDoCommand(int player, int position, int index, int commandId)
         {
+            if (ExternalAiOwnsInput) return;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelComDoCommand player:" + player + " pos:" + position + " indx:" + index + " cmd:" + commandId + " seq:" + RunEffectSeq);
@@ -706,6 +717,7 @@ namespace YgoMasterClient
 
         static int DLL_DuelComCancelCommand()
         {
+            if (ExternalAiOwnsInput) return 0;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelComCancelCommand seq:" + RunEffectSeq);
@@ -719,6 +731,7 @@ namespace YgoMasterClient
 
         static int DLL_DuelComCancelCommand2(bool decide)
         {
+            if (ExternalAiOwnsInput) return 0;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelComCancelCommand2 seq:" + RunEffectSeq);
@@ -733,6 +746,7 @@ namespace YgoMasterClient
 
         static void DLL_DuelDlgSetResult(uint result)
         {
+            if (ExternalAiOwnsInput) return;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelDlgSetResult result:" + result + " seq:" + RunEffectSeq);
@@ -747,6 +761,7 @@ namespace YgoMasterClient
 
         static void DLL_DuelListSetCardExData(int index, int data)
         {
+            if (ExternalAiOwnsInput) return;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelListSetCardExData index:" + index + " data:" + data + " seq:" + RunEffectSeq);
@@ -762,6 +777,7 @@ namespace YgoMasterClient
 
         static void DLL_DuelListSetIndex(int index)
         {
+            if (ExternalAiOwnsInput) return;
             if (IsPvpDuel)
             {
                 Log("DLL_DuelListSetIndex index:" + index + "seq:" + RunEffectSeq);
