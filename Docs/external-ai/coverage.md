@@ -16,10 +16,11 @@
 | 실제 native Hook<T> — basic | 16개 consumed / 16개 applied | 기존 loader의 MinHook으로 export 6개와 CPU 계측 5개 연결. 상충하는 입력 16개 차단, 원래 view 콜백 103개 전달 |
 | 실제 native Hook<T> — twin-target | 20개 consumed / 20개 applied | 동일한 훅·화면 대기 조건에서 코스트/두 대상의 묘지 이동 대조도 통과 |
 | 실제 native Hook<T> — chain-cost | 20개 consumed / 20개 applied | 상대 Graceful Charity→Magic Jammer→패 한 장 코스트. 체인 출처·순서·역순 해결, 마법 무효화/파괴, 세 카드의 묘지 이동을 대조 |
+| 실제 native Hook<T> — deck-order | 24개 consumed / 24개 applied | Spellbook Organization의 순서 6개 생성. 목록 3→2→1로 덱 위 3장을 정렬하고 첫 UID가 다음 턴 드로우로 패에 들어온 것을 대조 |
 | 게임 안내 문자열 | DLG 785개·WORD 257개 읽음 | 현재 추출 자산의 ID별 offset·범위·UTF-8 검사. 실제 요청에서 DLG 33 질문과 581 안내/카드명 치환을 검증. 모든 ID의 듀얼 사용이나 치환 타입을 검증한 것은 아님 |
 | 실제 Jev endpoint 인증 | 미검증 | API 키 준비가 필요함 |
 | 게임 화면·주입 훅·UI 대기 경합 | 미검증 | 독립 DLL host는 이 범위를 재현하지 않음 |
-| 다중 소재·합계·정렬·선언 | 미완료 | 순차 버리기/대상 선택 검증은 다른 소재 조합의 합법성 증명이 아님 |
+| 다중 소재·합계·다른 정렬·선언 | 미완료 | 순차 버리기/대상 선택/확인된 3장 정렬은 다른 소재 조합의 합법성 증명이 아님 |
 
 DLL host는 생산 decoder/controller/worker를 그대로 컴파일하고, IL2CPP·UI 바인딩만 export shim으로 대체합니다. 실제 게임에서 추출한 카드 데이터를 넣고 `DuelSysInitCustom`으로 초기화합니다. 재현을 위한 test deck은 같은 카드를 40장 넣은 fixture이며, 일반 덱 구성의 적법성을 검증하는 검사는 아닙니다. 실행 중인 게임에 주입하지 않고, DLL 파일·게임 설치·Solo 저장 파일을 수정하지 않습니다.
 
@@ -27,7 +28,7 @@ DLL host는 생산 decoder/controller/worker를 그대로 컴파일하고, IL2CP
 
 모의 provider 성공과 실제 Jev 성공은 구분합니다. HTTP 형식 검사는 가짜 endpoint를 사용했습니다. 정상 듀얼 host의 provider는 `mock`이며 선택지 문구를 LLM으로 생성하지 않습니다.
 
-버리기·Twin Twisters·Magic Jammer fixture는 검사용 별도 provider를 사용합니다. 버리기에서는 마지막 합법 후보를 고르고, Twin Twisters에서는 두 카드를 세트한 뒤 추가 대상 질문에 동의하며, Magic Jammer에서는 상대 마법에 대응합니다. 생산 앱의 Jev 선택을 대신하는 규칙이 아닙니다. Runner는 선택한 카드와 실제 묘지 UID를 자동 대조하며, 소비/적용 횟수가 맞더라도 이 대조가 실패하면 실패로 종료합니다. 각 기록의 source hash를 보존하므로 앞선 basic/spell-target 검사와 추가 검사의 소스 버전을 구분할 수 있습니다.
+버리기·Twin Twisters·Magic Jammer·덱 정렬 fixture는 검사용 별도 provider를 사용합니다. 버리기에서는 마지막 합법 후보를 고르고, Twin Twisters에서는 두 카드를 세트한 뒤 추가 대상 질문에 동의하며, Magic Jammer에서는 상대 마법에 대응하고, 덱 정렬에서는 마지막 순서 후보를 고릅니다. 생산 앱의 Jev 선택을 대신하는 규칙이 아닙니다. Runner는 선택한 카드의 묘지 UID 또는 실제 덱 순서·다음 드로우를 자동 대조하며, 소비/적용 횟수가 맞더라도 이 대조가 실패하면 실패로 종료합니다. 각 기록의 source hash를 보존하므로 앞선 basic/spell-target 검사와 추가 검사의 소스 버전을 구분할 수 있습니다.
 
 native-hook 검사는 기존 `YgoMasterLoader.dll`을 소유한 host에 읽어 넣고 생산 `Hook<T>`를 사용합니다. SetWork·SetEffectDelegate·SetPlayerType·DlgSetResult·ComDoCommand·SysAct의 실제 export 호출을 가로채며, controller/worker/decoder는 생산 코드를 그대로 컴파일합니다. view와 SysAct 연결 어댑터는 host 전용입니다. IL2CPP 생성자나 게임 화면을 실행하는 검사는 아닙니다. `--ui-waits-for-input`은 제출 후에도 view가 버튼 입력을 기다린다는 상황을 재현합니다. 외부 요청과 맞는 busy 호출은 기다리는 동안 1, 제출 후 0으로 처리하고 다른 표시/애니메이션 콜백은 계속 전달합니다.
 
@@ -42,6 +43,10 @@ YesNo의 `p2`는 실제 질문의 DLG ID입니다. 혼합 문자열은 앞선 �
 chain-cost에서 상대 마법 UID 12와 Magic Jammer UID 65의 체인을 관측했습니다. 코스트는 기본값과 다른 패 인덱스 3의 UID 43을 선택했습니다. Magic Jammer→Graceful Charity 순으로 해결됐고, 상대 마법의 CardDisable·CardBreak를 확인했습니다. 첫 체인 범위에는 드로우 이벤트가 없으며 이후 무효화되지 않은 Graceful Charity에는 드로우 이벤트가 있어 검출이 실제로 작동함을 대조했습니다. UID 12·65·43은 모두 실제 묘지에 존재했습니다. 상충 입력 20개 차단, view 콜백 219개 전달, 제어 대상 CPU 평가 진입 0회도 확인했습니다. 이 한 카운터 함정의 증거를 모든 체인·효과 유형의 완료로 확대하지 않습니다.
 
 동일한 20개 요청을 생산 Python 앱으로 오프라인 재구성해 체인 출처의 이름·설명이 provider 상태에 포함되는지 확인했습니다. 적용 이력까지 넣은 Jev 형식 본문의 최대 크기는 13,632 UTF-8 byte로 현재 앱의 30,000 byte 제한 이내였습니다. 네트워크로 Jev에 전송한 검사가 아닙니다.
+
+deck-order의 수정 전에는 실제 목록 요청 `[56, 1, 9, 0]`, 3장/3장 제약을 `unknown`으로 처리해 6개 입력만 적용하고 CPU로 복귀했습니다. 수정 후에는 해결 중인 Spellbook Organization(5676)의 공개 출처, 자기 덱에서 온 서로 다른 UID 3개, 목록 타입·정확한 장수를 모두 확인한 경우에만 전체 순서가 독립임을 인정합니다. 목록 UID 67·63·75를 기본값과 다른 75→63→67로 정렬했습니다. 후속 엔진 덱 순서가 일치하고 나머지 카드 순서는 유지됐으며, 다음 자기 턴의 실제 드로우 후 UID 75가 패에 존재했습니다. 활성화 요청과 출처 UID도 일치해 parentDecisionId가 연결됐습니다. 비공개 전체 덱 순서는 검사용 host 기록에만 있으며 서버·앱 관측에는 포함되지 않습니다.
+
+이 검증의 main/battle/timing/other/dialog 계측 5종은 제어 대상 진입 0회였습니다. 상대 CPU는 main 190·timing 43·other 3·dialog 182회로 계측이 살아 있음을 확인했습니다. native 목록 생성자의 사전 순위는 제출 전에 전부 지우고 외부 순위 1..3으로 교체합니다. 목록 사전 계산까지 전부 차단한 것으로 해석하지 않습니다. 표시 콜백 167개 전달과 상충 입력 24개 차단도 확인했습니다.
 
 ## 재현
 
@@ -61,10 +66,11 @@ py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --output '.local\native-twin-target' --scenario twin-target --decisions 20
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-basic' --scenario basic --decisions 16 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-chain' --scenario chain-cost --decisions 20 --ui-waits-for-input
+py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-deck-order' --scenario deck-order --decisions 24 --ui-waits-for-input
 ```
 
 각 output의 `result.json`은 provider, source hash, 엔진 소비 ID, 서버 기록을 포함하고 `native.log/app.log/server.log`를 따로 남깁니다. 로컬 설정과 bridge token은 Git에서 제외됩니다.
 
 실제 키가 준비된 경우 같은 검사에 `--provider jev --decisions 3 --timeout 120`을 붙여 최소 호출로 연결을 확인할 수 있습니다. 이 검사는 실제 API 호출 비용이 발생합니다. 아직 수행하지 않은 검사의 예시 명령입니다.
 
-전체 목표는 진행 중입니다. 남은 작업은 실제 Jev 왕복, 게임 화면에서의 훅·UI 경합 확인, 다른 혼합 문자열 타입과 다중 소재·합계·정렬·선언 경로의 decoder/실제 입력 검증입니다.
+전체 목표는 진행 중입니다. 남은 작업은 실제 Jev 왕복, 게임 화면에서의 훅·UI 경합 확인, 다른 혼합 문자열 타입과 다중 소재·합계·다른 정렬·선언 경로의 decoder/실제 입력 검증입니다.

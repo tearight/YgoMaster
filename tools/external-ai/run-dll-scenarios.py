@@ -15,10 +15,43 @@ sys.path.insert(0, str(ROOT / "JevApp"))
 from jev_app.bridge import BridgeClient
 
 
-def scenario_checks(summary, records, scenario, native_text=""):
-    if summary is None or scenario not in ("discard-two", "twin-target", "chain-cost"):
+def scenario_checks(summary, records, scenario, native_text="", app_text=""):
+    if summary is None or scenario not in ("discard-two", "twin-target", "chain-cost", "deck-order"):
         return {}
     applied = [record for record in records if record["state"] == "applied"]
+    if scenario == "deck-order":
+        ordered = [record for record in applied if record["request"]["observation"].get("selectionContext", {}).get("role") == "deck_order"]
+        if not ordered:
+            return {"ordered_list_applied": False}
+        record = ordered[0]; req = record["request"]
+        by_id = {choice["actionId"]: choice["cardReferences"][0] for choice in req["choices"]}
+        selected = record["decision"]["actionIds"]
+        selected_uids = [by_id[key]["uniqueId"] for key in selected]
+        snapshots = summary["deckOrderSnapshots"]
+        before = next((row["uniqueIds"] for row in snapshots if row["sequence"] == req["requestSequence"]), [])
+        after = next((row["uniqueIds"] for row in snapshots if row["sequence"] > req["requestSequence"]), [])
+        later = [row["request"] for row in applied if row["request"]["requestSequence"] > req["requestSequence"]]
+        questions = [json.loads(line[9:]) for line in app_text.splitlines() if line.startswith("QUESTION ")]
+        rendered = next((row for row in questions if row["selection"]["role"] == "deck_order"), None)
+        parent = req["observation"]["selectionContext"].get("parentDecisionId")
+        source = req["observation"]["selectionContext"].get("sourceCards", [])
+        return {"ordered_list_applied": True,
+                "three_distinct_cards_in_full_order": len(selected_uids) == len(set(selected_uids)) == 3 and set(selected) == set(by_id),
+                "non_default_order_chosen": selected != list(by_id),
+                "selected_order_became_deck_top": bool(after) and after[:3] == selected_uids,
+                "other_deck_cards_kept_order": bool(before) and len(before) == len(after) and before[3:] == after[3:],
+                "first_ranked_card_drawn_next_turn": bool(selected_uids) and any(row["observation"]["turn"] > req["observation"]["turn"]
+                    and any(card.get("uniqueId") == selected_uids[0] and card["player"] == req["actor"] and card.get("position") == 13
+                            for card in row["observation"]["cards"]) for row in later),
+                "six_top_first_choices_rendered": rendered is not None and len(rendered["criteria"]) == 6
+                    and all(text.startswith("덱 맨 위부터 이 순서로 놓는다: ") for text in rendered["criteria"].values()),
+                "source_activation_linked": len(source) == 1 and any(row["request"]["decisionId"] == parent
+                    and any(choice["actionId"] in row["decision"]["actionIds"] and choice["semanticKind"] == "activate"
+                        and choice["cardReferences"][0].get("uniqueId") == source[0].get("uniqueId") for choice in row["request"]["choices"])
+                    for row in applied),
+                "private_deck_order_excluded_from_requests": all("deckOrderSnapshots" not in row["request"]["observation"]
+                    and all("uniqueId" not in card and "cardId" not in card for card in row["request"]["observation"]["cards"]
+                            if card.get("position") == 15) for row in records)}
     def selections(role):
         values = []
         for record in applied:
@@ -92,7 +125,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--ui-waits-for-input", action="store_true", help="simulate a view still waiting for its input button")
     parser.add_argument("--loader", help="existing YgoMasterLoader.dll; enables production Hook<T> in the owned host")
-    parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target", "chain-cost"), default="basic")
+    parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target", "chain-cost", "deck-order"), default="basic")
     args = parser.parse_args()
     if not 1 <= args.decisions <= 100 or not 5 <= args.timeout <= 600:
         parser.error("decisions must be 1..100 and timeout must be 5..600 seconds")
@@ -135,7 +168,7 @@ def main():
                 raise RuntimeError("bridge readiness timed out")
             child_env = dict(os.environ, PYTHONIOENCODING="utf-8")
             app_command = [sys.executable, "-u", "-m", "jev_app", "--provider", args.provider]
-            if args.provider == "mock" and args.scenario in ("discard-two", "twin-target", "chain-cost"):
+            if args.provider == "mock" and args.scenario in ("discard-two", "twin-target", "chain-cost", "deck-order"):
                 app_command = [sys.executable, "-u", str(ROOT / "tests/ExternalAi/ScenarioApp.py"), "--scenario", args.scenario]
             app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],
                                    cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
@@ -147,7 +180,7 @@ def main():
             (output / "native.log").write_text(text, encoding="utf-8")
             summary = next((json.loads(line[8:]) for line in text.splitlines() if line.startswith("SUMMARY ")), None)
             records = [] if summary is None else [bridge.get(r["decisionId"]) for r in summary["requests"]]
-            checks = scenario_checks(summary, records, args.scenario, text)
+            checks = scenario_checks(summary, records, args.scenario, text, (output / "app.log").read_text(encoding="utf-8"))
             if args.ui_waits_for_input and summary is not None:
                 checks.update(submitted_input_busy_released=summary["submittedUiBusyOverrides"] > 0,
                               no_submitted_input_ui_wait=summary["submittedUiBusyCalls"] == 0)

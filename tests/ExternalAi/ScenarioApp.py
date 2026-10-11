@@ -21,6 +21,12 @@ class ScenarioProvider:
         if keys[0].startswith("discard_"):
             # Choose the last card so a native default at index zero cannot pass this check.
             selected = keys[-1]
+        elif self.scenario == "deck-order":
+            if state["selection"]["role"] == "deck_order":
+                selected = keys[-1]
+            elif "phase_5" in keys and any(action["semanticKind"] == "sort_card"
+                    for decision in state["appliedDecisions"] for action in decision["actions"]):
+                selected = "phase_5"
         elif self.scenario == "twin-target":
             sets = [key for key in keys if key.startswith("command_") and key.endswith("_7")]
             face_down = [card for card in state["duel"]["cards"] if card["player"] == state["actor"]
@@ -55,7 +61,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bridge-config", required=True)
     parser.add_argument("--card-data", required=True)
-    parser.add_argument("--scenario", choices=("discard-two", "twin-target", "chain-cost"), required=True)
+    parser.add_argument("--scenario", choices=("discard-two", "twin-target", "chain-cost", "deck-order"), required=True)
     args = parser.parse_args()
     DecisionApp(BridgeClient(args.bridge_config), ScenarioProvider(args.scenario), CardCatalog.from_game(args.card_data),
                 TextCatalog.from_game(args.card_data)).run()

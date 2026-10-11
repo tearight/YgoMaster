@@ -59,7 +59,7 @@ namespace YgoMasterClient
         static NativeExport<Set1> hookDLL_DuelComMovePhase, hookDLL_DuelListSetIndex;
         static NativeExport<Get0> hookDLL_DuelComCancelCommand, hookDLL_DuelListGetItemMax, hookDLL_DuelListGetSelectMin, hookDLL_DuelListGetSelectMax, hookDLL_DuelListIsMultiMode;
         static NativeExport<SetUInt> hookDLL_DuelDlgSetResult;
-        static NativeExport<Get1> hookDLL_DuelListGetItemID, hookDLL_DuelListGetItemAttribute, hookDLL_DuelListGetItemUniqueID, hookDLL_DuelGetLP;
+        static NativeExport<Get1> hookDLL_DuelListGetItemID, hookDLL_DuelListGetItemFrom, hookDLL_DuelListGetItemAttribute, hookDLL_DuelListGetItemUniqueID, hookDLL_DuelGetLP;
         static NativeExport<Get2> hookDLL_DuelGetCardNum;
         static NativeExport<Get3> hookDLL_DuelGetCardUniqueID;
         static NativeExport<Get3> hookDLL_DuelGetCardFace;
@@ -81,6 +81,13 @@ namespace YgoMasterClient
             GCHandle pin = GCHandle.Alloc(File.ReadAllBytes(path), GCHandleType.Pinned); buffers.Add(pin); return pin.AddrOfPinnedObject();
         }
         static List<object> requests = new List<object>();
+        static bool recordDeckOrder;
+        static List<object> deckOrderSnapshots = new List<object>();
+        static int[] DeckOrder()
+        {
+            return Enumerable.Range(0, hookDLL_DuelGetCardNum.Original(RivalID, 15))
+                .Select(index => hookDLL_DuelGetCardUniqueID.Original(RivalID, 15, index)).ToArray();
+        }
         static bool uiWaitsForInput;
         static int submittedUiBusyCalls;
         static int submittedUiBusyOverrides;
@@ -92,6 +99,10 @@ namespace YgoMasterClient
             if (externalAiInput != null && seen.Add(Protocol.Text(externalAiInput.Request, "decisionId")))
             {
                 requests.Add(externalAiInput.Request);
+                // Fixture evidence only. Private deck order is never added to the bridge request.
+                if (recordDeckOrder) deckOrderSnapshots.Add(new Dictionary<string, object> {
+                    {"sequence", Protocol.Number(externalAiInput.Request, "requestSequence")}, {"uniqueIds", DeckOrder()}
+                });
                 for (int player = 0; player < 2; player++) for (int pos = 0; pos <= 12; pos++)
                     if (hookDLL_DuelGetCardNum.Original(player, pos) > 0)
                         Console.WriteLine("FACE " + player + " " + pos + " " + hookDLL_DuelGetCardFace.Original(player, pos, 0));
@@ -161,6 +172,7 @@ namespace YgoMasterClient
             hookDLL_DuelListGetSelectMax = Export<Get0>("DLL_DuelListGetSelectMax");
             hookDLL_DuelListIsMultiMode = Export<Get0>("DLL_DuelListIsMultiMode");
             hookDLL_DuelListGetItemID = Export<Get1>("DLL_DuelListGetItemID");
+            hookDLL_DuelListGetItemFrom = Export<Get1>("DLL_DuelListGetItemFrom");
             hookDLL_DuelListGetItemAttribute = Export<Get1>("DLL_DuelListGetItemAttribute");
             hookDLL_DuelListGetItemUniqueID = Export<Get1>("DLL_DuelListGetItemUniqueID");
             hookDLL_DuelGetLP = Export<Get1>("DLL_DuelGetLP");
@@ -207,7 +219,8 @@ namespace YgoMasterClient
             Bind<SetUInt>("DLL_DuelSetRandomSeed")(1234);
             SetDeck deck = Bind<SetDeck>("DLL_DuelSysSetDeck2");
             string scenario = args[5];
-            int cardId = scenario == "spell-target" ? 4909 : scenario == "discard-two" ? 4812 : scenario == "twin-target" ? 12175 : scenario == "chain-cost" ? 4862 : 4084;
+            recordDeckOrder = scenario == "deck-order";
+            int cardId = scenario == "spell-target" ? 4909 : scenario == "discard-two" ? 4812 : scenario == "twin-target" ? 12175 : scenario == "chain-cost" ? 4862 : scenario == "deck-order" ? 5676 : 4084;
             int[] main = Enumerable.Repeat(cardId, 40).ToArray();
             int[] opponentMain = scenario == "chain-cost" ? Enumerable.Repeat(4812, 40).ToArray() : main;
             deck(0, opponentMain, opponentMain.Length, new int[0], 0, new int[0], 0); deck(1, main, main.Length, new int[0], 0, new int[0], 0);
@@ -242,6 +255,7 @@ namespace YgoMasterClient
                 {"normalInitialization", true}, {"profileSha256", EngineProfile.Sha256}, {"requests", requests},
                 {"consumedIds", consumed.ToArray()}, {"targetPlayerType", externalAiProfile.Read32(0x2c5cbc + 12)},
                 {"elapsedSeconds", watch.Elapsed.TotalSeconds}, {"gameProcessInjected", false}, {"finalCards", finalCards},
+                {"deckOrderSnapshots", deckOrderSnapshots}, {"finalDeckUniqueIds", recordDeckOrder ? DeckOrder() : new int[0]},
                 {"uiWaitsForInput", uiWaitsForInput}, {"submittedUiBusyCalls", submittedUiBusyCalls}, {"submittedUiBusyOverrides", submittedUiBusyOverrides},
                 {"nativeHookCount", nativeHooks.Count}, {"nativeSysActCalls", nativeSysActCalls},
                 {"suppressedUiInputs", suppressedUiInputs}, {"originalViewCalls", originalViewCalls}, {"cpuEvaluatorCalls", cpuEvaluatorCalls}

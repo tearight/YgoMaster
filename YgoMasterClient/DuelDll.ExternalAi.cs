@@ -440,6 +440,33 @@ namespace YgoMasterClient
                 limits["min"] = min; limits["max"] = max; limits["allowEmpty"] = min == 0;
                 // Material/sum constraints are not inferred from min/max. Unknown remains explicit.
                 limits["legality"] = min == 1 && max == 1 ? "single" : "unknown";
+                // Spellbook Organization's resolving chain exposes exactly three own
+                // deck cards. Its effect permits every order; this is not a material rule.
+                bool deckOrder = false;
+                Tuple<uint, Dictionary<string, object>> resolving = externalAiChain.LastOrDefault(value => Protocol.Text(value.Item2, "status") == "resolving");
+                if (count == 3 && min == count && max == count && multi && externalAiChainComplete &&
+                    externalAiProfile.ListType == (int)DuelListType.Select + 3 && resolving != null)
+                {
+                    var sourceCards = Protocol.List(resolving.Item2, "cardReferences");
+                    if (sourceCards.Count == 1)
+                    {
+                        Dictionary<string, object> source = Protocol.Object(sourceCards[0]);
+                        deckOrder = Protocol.Number(source, "player") == actor && Protocol.Number(source, "cardId") == 5676 &&
+                            Enumerable.Range(0, count).All(index => hookDLL_DuelListGetItemFrom.Original(index) == 15 &&
+                                (hookDLL_DuelListGetItemAttribute.Original(index) & ((int)DuelListAttribute.Opponent | (int)DuelListAttribute.FromMask)) == (int)DuelListAttribute.FromDeck &&
+                                hookDLL_DuelListGetItemID.Original(index) > 0 && hookDLL_DuelListGetItemUniqueID.Original(index) > 0) &&
+                            Enumerable.Range(0, count).Select(index => hookDLL_DuelListGetItemUniqueID.Original(index)).Distinct().Count() == count;
+                        if (deckOrder)
+                        {
+                            limits["ordered"] = true; limits["legality"] = "independent";
+                            selectionContext["role"] = "deck_order"; selectionContext["sourceCards"] = sourceCards;
+                            selectionContext["orderDirection"] = "top_first";
+                            if (externalAiActiveChoice != null && Protocol.List(externalAiActiveChoice, "cardReferences").Cast<object>()
+                                .Any(value => Protocol.Number(Protocol.Object(value), "uniqueId") == Protocol.Number(source, "uniqueId")))
+                                selectionContext["parentDecisionId"] = externalAiActiveDecision;
+                        }
+                    }
+                }
                 for (int index = 0; index < count; index++)
                 {
                     int itemIndex = index, cardId = hookDLL_DuelListGetItemID.Original(index);
@@ -453,7 +480,7 @@ namespace YgoMasterClient
                     };
                     if (visible) { card["cardId"] = cardId; card["uniqueId"] = hookDLL_DuelListGetItemUniqueID.Original(index); }
                     string key = "list_" + index;
-                    add(key, "select_card", new Dictionary<string, object>(), new List<object> { card }, () => hookDLL_DuelListSetIndex.Original(itemIndex));
+                    add(key, deckOrder ? "sort_card" : "select_card", new Dictionary<string, object>(), new List<object> { card }, () => hookDLL_DuelListSetIndex.Original(itemIndex));
                     listIndices[key] = index;
                 }
             }
@@ -500,6 +527,17 @@ namespace YgoMasterClient
                 }
                 else if (id == 56 && multi)
                 {
+                    if (Protocol.Flag(limits, "ordered"))
+                    {
+                        if (hookDLL_DuelListGetItemMax.Original() != choices.Count) throw new InvalidOperationException("list_changed_before_apply");
+                        foreach (object value in choices)
+                        {
+                            Dictionary<string, object> choice = Protocol.Object(value);
+                            Dictionary<string, object> card = Protocol.Object(Protocol.List(choice, "cardReferences")[0]);
+                            if (hookDLL_DuelListGetItemUniqueID.Original(listIndices[Protocol.Text(choice, "actionId")]) != Protocol.Number(card, "uniqueId"))
+                                throw new InvalidOperationException("list_changed_before_apply");
+                        }
+                    }
                     foreach (int index in listIndices.Values) hookDLL_DuelListSetCardExData.Original(index, 0);
                     for (int rank = 0; rank < selected.Count; rank++) hookDLL_DuelListSetCardExData.Original(listIndices[selected[rank]], rank + 1);
                     hookDLL_DuelDlgSetResult.Original((uint)selected.Count);

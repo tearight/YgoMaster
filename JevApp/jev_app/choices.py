@@ -152,7 +152,9 @@ def build_question(request, context, cards, texts):
         key = f"selection_{index}"
         criteria[key] = "아무 카드도 선택하지 않는다" if not group else " → ".join(labels[item] for item in group)
         if limits["ordered"] and group:
-            criteria[key] = "이 순서로 선택한다: " + criteria[key]
+            selection = request["observation"].get("selectionContext", {})
+            prefix = "덱 맨 위부터 이 순서로 놓는다: " if selection.get("role") == "deck_order" and selection.get("orderDirection") == "top_first" else "이 순서로 선택한다: "
+            criteria[key] = prefix + criteria[key]
         selections[key] = list(group)
     if not criteria:
         raise ValueError("no_legal_choices")
