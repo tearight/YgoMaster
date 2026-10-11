@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$CardData,
     [string]$Config,
-    [ValidateSet('jev','mock')][string]$Provider = 'jev'
+    [ValidateSet('human','jev','mock')][string]$Provider = 'human',
+    [string]$HumanEndpoint = 'http://127.0.0.1:49173/v1/systemone'
 )
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
@@ -15,6 +16,6 @@ if ($Provider -eq 'jev' -and [string]::IsNullOrWhiteSpace($env:JEV_API_KEY)) {
 }
 Push-Location (Join-Path $taskRoot 'JevApp')
 try {
-    py -3 -m jev_app --bridge-config $Config --provider $Provider --card-data $CardData
+    py -3 -m jev_app --bridge-config $Config --provider $Provider --card-data $CardData --human-endpoint $HumanEndpoint
     exit $LASTEXITCODE
 } finally { Pop-Location }

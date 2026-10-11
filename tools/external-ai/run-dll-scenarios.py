@@ -121,7 +121,8 @@ def main():
     parser.add_argument("--dll", required=True)
     parser.add_argument("--data", required=True, help="CardData folder; read only")
     parser.add_argument("--output", required=True)
-    parser.add_argument("--provider", choices=("mock", "jev"), default="mock")
+    parser.add_argument("--provider", choices=("mock", "human", "jev"), default="mock")
+    parser.add_argument("--human-endpoint", default="http://127.0.0.1:49173/v1/systemone")
     parser.add_argument("--decisions", type=int, default=8)
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--ui-waits-for-input", action="store_true", help="simulate a view still waiting for its input button")
@@ -175,6 +176,8 @@ def main():
                 raise RuntimeError("bridge readiness timed out")
             child_env = dict(os.environ, PYTHONIOENCODING="utf-8")
             app_command = [sys.executable, "-u", "-m", "jev_app", "--provider", args.provider]
+            if args.provider == "human":
+                app_command += ["--human-endpoint", args.human_endpoint]
             if args.provider == "mock" and (args.restart_app_after or args.scenario in ("discard-two", "twin-target", "chain-cost", "deck-order")):
                 app_command = [sys.executable, "-u", str(ROOT / "tests/ExternalAi/ScenarioApp.py"), "--scenario", args.scenario]
             app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],

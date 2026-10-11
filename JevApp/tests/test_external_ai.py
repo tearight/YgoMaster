@@ -14,6 +14,7 @@ from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.request import Request
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "JevApp"))
@@ -24,6 +25,7 @@ from jev_app.context import DuelContext, visible_observation
 from jev_app.metadata import CardCatalog, TextCatalog
 from jev_app.protocol import IDENTITY, utc_now
 from jev_app.provider import JevProvider, MockProvider, RetryableError
+from jev_app.human import HumanServer
 
 
 def request(decision_id, duel_id=None, generation=1, sequence=1, seconds=90):
@@ -167,6 +169,46 @@ class BridgeIntegration(unittest.TestCase):
             child.terminate()
             output, errors = child.communicate(timeout=5)
             self.assertNotIn(self.token.encode(), output + errors)
+
+    def test_human_jev_choice_maps_to_ordered_engine_actions(self):
+        req = request("human-ordered")
+        req["choices"].append({"actionId": "next", "semanticKind": "phase", "text": "", "cardReferences": [],
+                               "arguments": {"phaseName": "メイン2"}})
+        req["constraints"].update(min=2, max=2, ordered=True, legality="independent")
+        self.bridge.call("v1/requests", req)
+        with HumanServer(0) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            app = DecisionApp(self.bridge, JevProvider(server.origin + "/v1/systemone", human=True), trace=lambda _: None)
+            worker = threading.Thread(target=app.process, args=(req,), daemon=True)
+            worker.start()
+            try:
+                for _ in range(100):
+                    job = server.view()["job"]
+                    if job:
+                        break
+                    time.sleep(.02)
+                self.assertIsNotNone(job)
+                self.assertEqual(job["id"], req["decisionId"])
+                criteria = job["query"]["questions"]["action"]["criteria"]
+                selected = next(reversed(criteria))
+                body = {"jobId": job["id"], "answers": {"action": {key: key == selected for key in criteria}}}
+                with self.bridge.opener.open(Request(server.origin + "/api/respond", json.dumps(body).encode(),
+                                                     {"Content-Type": "application/json"}), timeout=2) as response:
+                    self.assertEqual(json.load(response)["state"], "answered")
+                worker.join(timeout=3)
+                self.assertFalse(worker.is_alive())
+                record = self.bridge.get(req["decisionId"])
+                self.assertEqual(record["state"], "accepted")
+                self.assertEqual(record["decision"]["actionIds"], ["next", "end"])
+                self.assertEqual(record["decision"]["provider"], "human")
+                self.assertEqual(record["decision"]["confidence"], 1)
+                self.bridge.call("v1/acks", dict({key: req[key] for key in IDENTITY}, state="applied", reason="test_engine_consumed"))
+                self.assertFalse(app.still_pending(req))
+                self.assertEqual(app.context.update(req)["appliedDecisions"][0]["actionIds"], ["next", "end"])
+            finally:
+                server.shutdown()
+                thread.join(timeout=2)
 
     def test_restarted_app_recovers_scoped_applied_history(self):
         def publish_and_apply(req, applied=True):

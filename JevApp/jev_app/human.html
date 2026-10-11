@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jev 직접 선택</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,"Malgun Gothic",sans-serif;color:#1b293d;background:#f2f5fa}*{box-sizing:border-box}body{margin:0}header{padding:26px 32px;background:#16283f;color:white}h1{font-size:25px;margin:0 0 8px}header p{margin:0;color:#d4e0f1;font-size:14px}main{max-width:1350px;margin:24px auto;padding:0 24px}.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.badge{border-radius:20px;background:#dcebe6;color:#175b49;padding:8px 14px;font-size:14px}.layout{display:grid;grid-template-columns:310px minmax(0,1fr);gap:22px}.panel{background:white;border:1px solid #dce2eb;border-radius:14px;padding:22px;box-shadow:0 4px 12px #16283f06}h2{font-size:18px;margin:0 0 16px}h3{font-size:14px;margin:20px 0 8px;color:#5b687b}.muted{color:#66758a;font-size:14px}.empty{text-align:center;padding:58px 12px}.empty strong{font-size:20px;display:block;margin-bottom:12px}.facts{line-height:1.85;font-size:14px}.card,.history{border-bottom:1px solid #edf0f5;padding:8px 0;font-size:13px;line-height:1.65}.card small{display:block;color:#69768a}fieldset{border:0;border-bottom:1px solid #e4e9f1;margin:0 0 22px;padding:0 0 22px;min-width:0}legend{font-size:16px;font-weight:650;margin-bottom:14px;width:100%;line-height:1.65}.option{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #d9e1ec;border-radius:10px;margin:8px 0;cursor:pointer;line-height:1.6}.option:has(input:checked){background:#edf6ff;border-color:#216ac1;box-shadow:0 0 0 1px #216ac1}.option input{width:18px;height:18px;accent-color:#216ac1;flex-shrink:0}.option .label{flex:1;white-space:pre-wrap;overflow-wrap:anywhere}.binary{font-family:ui-monospace,monospace;font-size:12px;color:#647286;white-space:nowrap}.option:has(input:checked) .binary{color:#1755a0;font-weight:700}.actions{display:flex;gap:12px;align-items:center}button{font:inherit;cursor:pointer;border-radius:9px;padding:11px 20px;border:1px solid #cbd6e5;background:white;color:#455b75}button.primary{background:#216ac1;border-color:#216ac1;color:white;font-weight:650}button:disabled{opacity:.45;cursor:default}button:focus-visible,input:focus-visible{outline:3px solid #91bdf4;outline-offset:3px}details{margin-top:18px;font-size:13px}summary{color:#526882;cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7fb;padding:14px;border-radius:8px;font-size:12px;line-height:1.6;max-height:360px;overflow:auto}#message{min-height:24px;color:#8d3e27;font-size:14px;margin:14px 0}#timer{color:#687891;font-size:13px}@media(max-width:800px){header{padding:24px}main{padding:0 14px}.layout{grid-template-columns:1fr}.panel{padding:18px}.bar{align-items:flex-start}.binary{font-size:11px}}
+</style>
+<header><h1>Jev 대신 직접 선택</h1><p>질문을 읽고 직접 결정하세요. 선택은 true(1), 나머지는 false(0)으로 반환합니다.</p></header>
+<main>
+<div class="bar"><span class="badge" id="status">연결 확인 중</span><span id="timer"></span></div>
+<div class="layout">
+<aside class="panel"><h2>현재 맥락</h2><div id="context" class="facts muted">질문이 들어오면 현재 상태와 이전 선택을 보여줍니다.</div></aside>
+<section class="panel"><div id="empty" class="empty"><strong>새 질문을 기다리고 있습니다</strong><p class="muted">연결 앱이 요청을 보내면 이곳에서 선택할 수 있습니다.</p><button id="practice" type="button">연습 질문으로 테스트</button></div>
+<form id="form" hidden><h2>사용자가 결정할 질문</h2><div id="questions"></div><div class="actions"><button id="submit" type="submit" class="primary" disabled>선택 반환</button><button id="cancel" type="button">이 요청 취소</button></div></form>
+<p id="message" role="status" aria-live="polite"></p>
+<details id="result" hidden><summary>최근 반환한 응답 보기</summary><pre id="response"></pre></details>
+</section></div></main>
+<script>
+const $=id=>document.getElementById(id);
+const describe=value=>typeof value==='string'?value:value==null?'':JSON.stringify(value,null,2);
+const add=(parent,tag,text,cls)=>{const el=document.createElement(tag);el.textContent=text;if(cls)el.className=cls;parent.append(el);return el};
+let current=null,activeId=null,polling=false,submitting=false;
+function context(state){
+ const box=$('context');box.replaceChildren();
+ try{
+ if(!state||typeof state!=='object'||!state.duel){add(box,'pre',describe(state));return}
+ const duel=state.duel,actor=state.actor,phases=['드로우','스탠바이','메인 1','배틀','메인 2','엔드'];
+ add(box,'div',`턴 ${duel.turn??'—'} · ${phases[duel.phase]??'페이즈 미확인'}`);
+ if(Array.isArray(duel.lifePoints))add(box,'div',`LP 자신 ${duel.lifePoints[actor]} / 상대 ${duel.lifePoints[1-actor]}`);
+ const chain=duel.chain??[];if(chain.length){add(box,'h3','진행 중인 체인');for(const item of chain)add(box,'div',`${item.order}. ${(item.cardReferences??[]).map(c=>c.name??'출처 미확인').join(', ')} · ${{pending:'대기',resolving:'해결 중',resolved:'해결됨'}[item.status]??''}`)}
+ add(box,'h3','관측 가능한 카드');
+ for(const card of duel.cards??[]){
+  const side=card.player===actor?'자신':'상대',zone=card.zone??({13:'패',14:'엑스트라 덱',15:'덱',16:'묘지'}[card.position]??'필드');
+  const place=card.position<13?` 구역 ${card.position+1}`:card.index!=null&&card.count==null?` ${card.index+1}번째`:'';
+  const line=add(box,'div',`${side} ${zone}${place} · ${card.count!=null?card.count+'장':card.name??'비공개 카드'}`,'card');
+  if(card.identityVisible&&card.attack!=null)add(line,'small',`공격력 ${card.attack} / 수비력 ${card.defense}`);
+ }
+ const history=state.appliedDecisions??[];if(history.length){add(box,'h3','최근 적용한 선택');for(const item of history.slice(-3)){const text=(item.actions??[]).map(a=>a.text||a.arguments?.phaseName||`${({summon:'소환',activate:'발동',set:'세트',discard:'버리기',select_card:'카드 선택',decline:'효과를 발동하지 않음',check_effects:'발동할 효과 확인',position:'표시 형식 선택',place_card:'필드 배치',place:'필드 배치',target:'대상 선택',draw:'드로우',confirm:'확인'}[a.semanticKind]??'선택')} ${(a.cardReferences??[]).map(c=>c.name??'카드').join(', ')}`).join(' → ');add(box,'div',text,'history')}}
+ const detail=add(box,'details','');add(detail,'summary','전체 맥락 보기');add(detail,'pre',describe(state));
+ }catch{box.replaceChildren();add(box,'pre',describe(state))}
+}
+function draw(job){
+ current=job;activeId=job.id;$('questions').replaceChildren();$('form').hidden=false;$('empty').hidden=true;$('message').textContent='';context(job.query.state);
+ Object.entries(job.query.questions).forEach(([key,q],index)=>{
+  const field=add($('questions'),'fieldset','');field.dataset.key=key;field.dataset.kind=q.type;
+  add(field,'legend',typeof q.instructions==='string'?q.instructions:q.instructions?.question??`질문 ${index+1}`);
+  if(typeof q.instructions!=='string'){const detail=add(field,'details','');add(detail,'summary','질문 설명 보기');add(detail,'pre',describe(q.instructions))}
+  const options=q.type==='noul'?[['true',q.criteria?.true??'예'],['false',q.criteria?.false??'아니오']]:q.type==='score'?q.criteria.map((value,i)=>[String(i),value]):Object.entries(q.criteria);
+  options.forEach(([value,label],ordinal)=>{
+   const row=add(field,'label','','option'),input=document.createElement('input');input.type='radio';input.name='q'+index;input.value=value;input.id=`q${index}o${ordinal}`;row.append(input);
+   add(row,'span',describe(label)||value,'label');add(row,'span',q.type==='noul'?`${value} · ${value==='true'?1:0}`:'false · 0','binary');
+   input.addEventListener('change',()=>{if(q.type!=='noul')for(const option of field.querySelectorAll('.option'))option.querySelector('.binary').textContent=option.querySelector('input').checked?'true · 1':'false · 0';ready()});
+  });
+ });ready();
+}
+function ready(){const fields=[...$('questions').querySelectorAll('fieldset')];$('submit').disabled=submitting||!fields.length||fields.some(field=>!field.querySelector('input:checked'))}
+const errors={choose_exactly_one_true:'각 질문에서 하나를 선택하세요.',answer_every_question:'모든 질문에 응답하세요.',request_no_longer_pending:'이 요청은 이미 종료되었습니다.'};
+async function send(cancel){
+ if(!current||submitting)return;submitting=true;ready();const jobId=current.id,answers=Object.create(null);
+ if(!cancel)for(const field of $('questions').querySelectorAll('fieldset')){const chosen=field.querySelector('input:checked');if(!chosen){submitting=false;ready();return}answers[field.dataset.key]=field.dataset.kind==='noul'?chosen.value==='true':Object.fromEntries([...field.querySelectorAll('input')].map(input=>[input.value,input.checked]))}
+ try{const response=await fetch(cancel?'/api/cancel':'/api/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobId,answers})});const data=await response.json();if(!response.ok)throw new Error(errors[data.error]??'응답을 반환하지 못했습니다.');$('message').textContent=cancel?'요청을 취소했습니다.':'선택을 반환했습니다.';activeId=null;current=null;await refresh()}
+ catch(error){$('message').textContent=error.message}finally{submitting=false;ready()}
+}
+$('form').addEventListener('submit',event=>{event.preventDefault();send(false)});$('cancel').addEventListener('click',()=>send(true));
+$('practice').addEventListener('click',async()=>{
+ $('practice').disabled=true;
+ const query={model:'jev-1.13.0',state:'연습 질문입니다. 이 화면에서 선택하고 응답을 반환하는 흐름을 확인합니다.',questions:{
+  action:{type:'choice',instructions:'어느 행동을 선택할까요?',criteria:{summon:'몬스터를 소환한다',end:'턴을 종료한다'}},
+  ready:{type:'noul',instructions:'선택을 확정할 준비가 됐나요?',criteria:{true:'예, 준비됐습니다',false:'아니오, 아직입니다'}}}};
+ try{const response=await fetch('/v1/systemone',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(query)});const data=await response.json();$('message').textContent=response.ok?'연습 응답을 반환했습니다.':'연습 요청이 종료되었습니다.'}
+ catch{$('message').textContent='연습 요청을 보내지 못했습니다.'}finally{$('practice').disabled=false}
+});
+async function refresh(){
+ if(polling)return;polling=true;
+ try{const response=await fetch('/api/pending');if(!response.ok)throw new Error();const data=await response.json();$('status').textContent=data.pendingCount?`판단 대기 ${data.pendingCount}건`:'연결됨 · 질문 대기';
+  $('timer').textContent=data.job?`응답 가능 시간 ${data.job.remainingSeconds}초`:'';
+  if(data.job&&data.job.id!==activeId)draw(data.job);
+  if(!data.job){current=null;activeId=null;$('form').hidden=true;$('empty').hidden=false}
+  if(data.lastResponse){$('result').hidden=false;$('response').textContent=JSON.stringify(data.lastResponse,null,2)}
+ }catch{$('status').textContent='연결 끊김';$('message').textContent='직접 선택 프로그램이 실행 중인지 확인하세요.'}finally{polling=false}
+}
+refresh();setInterval(refresh,800);
+</script>
+</html>

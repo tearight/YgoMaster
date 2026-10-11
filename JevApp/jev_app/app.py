@@ -58,11 +58,13 @@ class DecisionApp:
         state["requestKind"] = request["requestKind"]
         state["constraints"] = request["constraints"]
         self.transition(decision_id, "choosing")
+        if getattr(self.provider, "human", False):
+            self.provider.request_id = decision_id
         for attempt in range(4):
             if not self.still_pending(request):
                 return
             try:
-                timeout = min(30, (deadline(request) - self.clock()).total_seconds())
+                timeout = min(getattr(self.provider, "max_wait", 30), (deadline(request) - self.clock()).total_seconds())
                 chosen = self.provider.choose(state, question.criteria, max(0.01, timeout))
                 break
             except RetryableError:

@@ -18,13 +18,15 @@ def main():
         "YgoMaster/YgoMasterClient.exe.config", "ExternalAi.example.json", "LICENSE",
         "tools/external-ai/Setup-ExternalAi.ps1", "tools/external-ai/Start-ExternalAiBridge.ps1",
         "tools/external-ai/Start-JevApp.ps1", "Docs/external-ai/README.md", "Docs/external-ai/protocol.md",
+        "tools/external-ai/Start-HumanJev.ps1",
         "Docs/external-ai/coverage.md", "Docs/external-ai/validation-summary.json")]
     files += sorted((ROOT / "JevApp/jev_app").glob("*.py"))
+    files += sorted((ROOT / "JevApp/jev_app").glob("*.html"))
     missing = [str(p.relative_to(ROOT)) for p in files if not p.is_file()]
     if missing:
         parser.error("required build/package files missing: " + ", ".join(missing))
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    manifest = {"commit": commit, "stage": "experimental; real Jev and injected UI integration not yet verified",
+    manifest = {"commit": commit, "stage": "human-operated Jev interface verified; live Jev and injected game UI not verified",
                 "files": {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}}
     manifest["files"]["START-HERE.txt"] = hashlib.sha256((ROOT / "Docs/external-ai/START-HERE.txt").read_bytes()).hexdigest()
     output = Path(args.output).resolve()

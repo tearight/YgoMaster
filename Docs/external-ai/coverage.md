@@ -1,11 +1,11 @@
-# 2026-10-11 검증 범위
+# 2026-10-12 검증 범위
 
 ## 확인한 결과
 
 | 검사 | 결과 | 범위 |
 |---|---|---|
 | client/server Framework C# 빌드 | 성공 | 기존 MSBuild/csc 사용. .NET 4.8 참조 팩 부재로 설치된 GAC를 사용하는 경고가 남음 |
-| bridge/app 자동 검사 | 15개 통과 | 실제 C# 서버와 Python 앱 프로세스, 인증·세대·기한·멱등성·합법 조합·실패 반환·비공개 정보·재시도·혼합 안내/질문 구분·문자열 offset 경계·복구 이력의 범위와 크기·대기 응답 묶음의 크기 |
+| bridge/app/수동 더미 자동 검사 | 18개 통과 | 기존 15개 + Choice/Noul/Score의 Boolean 입력·1/0 출력, 재전송·기한·취소·Origin 검사, 수동 Choice→순서 있는 엔진 행동 매핑 |
 | InputSession 검사 | 통과 | 엔진 스레드 소유, 한 번 적용, 순서 매핑, 지연 session 거절, 명시적 소비 확인 |
 | 실제 추출 카드 데이터 | 14,323개 읽음 | 카드 ID→이름·설명. 원본 자산은 읽기만 함 |
 | 정상 초기화 DLL — basic | 8개 consumed / 8개 applied | 효과 확인, 일반 소환, 위치 선택, 필드 반영, 페이즈 이동 |
@@ -18,8 +18,11 @@
 | 실제 native Hook<T> — chain-cost | 20개 consumed / 20개 applied | 상대 Graceful Charity→Magic Jammer→패 한 장 코스트. 체인 출처·순서·역순 해결, 마법 무효화/파괴, 세 카드의 묘지 이동을 대조 |
 | 실제 native Hook<T> — deck-order | 24개 consumed / 24개 applied | Spellbook Organization의 순서 6개 생성. 목록 3→2→1로 덱 위 3장을 정렬하고 첫 UID가 다음 턴 드로우로 패에 들어온 것을 대조 |
 | 실제 native Hook<T> — 앱 재시작 | 8개 consumed / 8개 applied | 세 번 적용한 뒤 별도 모의 앱 프로세스를 종료·재실행. 첫 후속 판단에 앞선 적용 ID 3개가 모두 포함됨을 대조 |
+| 실제 native Hook<T> — human 브라우저 선택 | 6개 consumed / 6개 applied | 브라우저에서 효과 확인·패 2번째 카드 소환·필드 구역 3 배치를 선택. UID 15가 실제 필드 position 2에 존재함을 대조. provider는 human, 확인값은 모두 정수 1 |
+| 브라우저 연습 질문 | 통과 | Choice와 Noul을 함께 표시하고, 모든 질문에 답하기 전 제출 불가. Choice의 선택/비선택은 1/0, Noul의 false는 0으로 실제 HTTP 반환. 2500×1400 화면 확인 |
+| 일반 JSON 맥락 표시 | 통과 | 게임 전용 구조와 다른 state도 원문으로 표시하고 Noul 질문을 유지. 브라우저의 true 선택을 정수 1로 실제 HTTP 반환 |
 | 게임 안내 문자열 | DLG 785개·WORD 257개 읽음 | 현재 추출 자산의 ID별 offset·범위·UTF-8 검사. 실제 요청에서 DLG 33 질문과 581 안내/카드명 치환을 검증. 모든 ID의 듀얼 사용이나 치환 타입을 검증한 것은 아님 |
-| 실제 Jev endpoint 인증 | 미검증 | API 키 준비가 필요함 |
+| 실제 Jev endpoint 인증 | 이번 단계 대상 아님 | 사용자 요청에 따라 로컬 human 더미로 인터페이스를 검증하며 실제 API를 호출하지 않음 |
 | 게임 화면·주입 훅·UI 대기 경합 | 미검증 | 독립 DLL host는 이 범위를 재현하지 않음 |
 | 다중 소재·합계·다른 정렬·선언 | 미완료 | 순차 버리기/대상 선택/확인된 3장 정렬은 다른 소재 조합의 합법성 증명이 아님 |
 
@@ -27,7 +30,7 @@ DLL host는 생산 decoder/controller/worker를 그대로 컴파일하고, IL2CP
 
 제어 대상 player type이 Human(0)인 상태에서 엔진이 외부 입력을 소비했습니다. 기존 연구에서 이 타입이 CPU 평가 분기를 우회함을 확인했습니다. 추가 native-hook basic fixture는 원래 함수로 전달하는 계측 훅을 넣었습니다. 제어 대상 player 1은 main/battle/timing/other/dialog 진입이 모두 0이었으며, player 0은 main 97회·other 3회·dialog 20회로 계측이 활성화됨을 확인했습니다. 이 증거의 범위는 해당 정상 초기화 듀얼의 관측한 경로입니다. 모든 카드와 실제 게임 화면의 전체 실행을 계측한 것으로 확대하지 않습니다.
 
-모의 provider 성공과 실제 Jev 성공은 구분합니다. HTTP 형식 검사는 가짜 endpoint를 사용했습니다. 정상 듀얼 host의 provider는 `mock`이며 선택지 문구를 LLM으로 생성하지 않습니다.
+모의 provider 성공과 실제 Jev 성공은 구분합니다. 앞선 자동 듀얼 fixture는 `mock`을, 이번 브라우저 검사는 `human`을 사용했습니다. 선택지 문구는 두 경우 모두 LLM 없이 생성합니다.
 
 버리기·Twin Twisters·Magic Jammer·덱 정렬 fixture는 검사용 별도 provider를 사용합니다. 버리기에서는 마지막 합법 후보를 고르고, Twin Twisters에서는 두 카드를 세트한 뒤 추가 대상 질문에 동의하며, Magic Jammer에서는 상대 마법에 대응하고, 덱 정렬에서는 마지막 순서 후보를 고릅니다. 생산 앱의 Jev 선택을 대신하는 규칙이 아닙니다. Runner는 선택한 카드의 묘지 UID 또는 실제 덱 순서·다음 드로우를 자동 대조하며, 소비/적용 횟수가 맞더라도 이 대조가 실패하면 실패로 종료합니다. 각 기록의 source hash를 보존하므로 앞선 basic/spell-target 검사와 추가 검사의 소스 버전을 구분할 수 있습니다.
 
@@ -73,10 +76,13 @@ py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-chain' --scenario chain-cost --decisions 20 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-deck-order' --scenario deck-order --decisions 24 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-app-restart' --scenario basic --decisions 8 --ui-waits-for-input --restart-app-after 3
+py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-human-browser' --scenario basic --provider human --decisions 6 --ui-waits-for-input --timeout 600
 ```
 
 각 output의 `result.json`은 provider, source hash, 엔진 소비 ID, 서버 기록을 포함하고 `native.log/app.log/server.log`를 따로 남깁니다. 로컬 설정과 bridge token은 Git에서 제외됩니다.
 
+human 검사에서는 더미 프로그램과 선택 화면을 먼저 열고 각 질문을 직접 반환합니다. 자동 검사보다 사람이 읽고 선택하는 시간이 길어 전체 host 기한을 600초로 둡니다. 요청별 기한은 120초이며 화면에 남은 시간을 표시합니다. 최초 180초 host 검사는 4건을 적용한 뒤 전체 기한이 끝났고, 늘린 기한의 최종 검사에서 6건 모두 적용됐습니다. 최종 검사에서 표시 콜백 44개 전달과 상충 입력 6개 차단도 확인했습니다. 실측 API 호출 없이 입력 인터페이스를 확인하는 검사입니다.
+
 실제 키가 준비된 경우 같은 검사에 `--provider jev --decisions 3 --timeout 120`을 붙여 최소 호출로 연결을 확인할 수 있습니다. 이 검사는 실제 API 호출 비용이 발생합니다. 아직 수행하지 않은 검사의 예시 명령입니다.
 
-전체 목표는 진행 중입니다. 남은 작업은 실제 Jev 왕복, 게임 화면에서의 훅·UI 경합 확인, 다른 혼합 문자열 타입과 다중 소재·합계·다른 정렬·선언 경로의 decoder/실제 입력 검증입니다.
+현재 요청 범위인 수동 Jev 더미와 인터페이스의 왕복을 검증했습니다. 실제 Jev 왕복과 게임 화면의 전체 통합, 미지원 decoder 확장은 이후 별도 범위입니다.
