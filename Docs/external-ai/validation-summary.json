@@ -190,6 +190,174 @@
           57
         ]
       }
+    },
+    {
+      "scenario": "native-hook-ui-basic",
+      "fixtureScenario": "basic",
+      "provider": "mock",
+      "exitCode": 0,
+      "scope": "isolated normal duel; production decoder/controller/worker and Hook<T> with host view/SysAct adapters",
+      "normalInitialization": true,
+      "nativeConsumed": 16,
+      "serverApplied": 16,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "nativeHookCount": 11,
+      "nativeSysActCalls": 932,
+      "suppressedUiInputs": 16,
+      "originalViewCalls": 103,
+      "observedEventCount": 103,
+      "submittedUiBusyOverrides": 16,
+      "submittedUiBusyCalls": 0,
+      "cpuEvaluatorCalls": {
+        "main": [
+          97,
+          0,
+          0
+        ],
+        "battle": [
+          0,
+          0,
+          0
+        ],
+        "timing": [
+          0,
+          0,
+          0
+        ],
+        "other": [
+          3,
+          0,
+          0
+        ],
+        "dialog": [
+          20,
+          0,
+          0
+        ]
+      },
+      "loaderSha256": "6185540596e65967d75b7183d5c4657d86363ce6b2d0b3a39693b28d29a0495c",
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "08dba5d9d57b5896e36e51817b1cbb872c4318c2d72121c12442f42819ccb53e",
+        "YgoMasterClient/Hook.cs": "dc8c9fcea9bf72b3a591719b2524d13446cee436e5a42958b9de31fbee1a475e",
+        "tests/ExternalAi/HookHost.cs": "981288561175554b02a6d3771126b86c413fd0da76fc4c4d1fdb333b893118fb",
+        "tests/ExternalAi/NativeHost.cs": "b7b692b3ff0a10a79061b031efda3ed57073ef3e27b3b863eac38b6a4694ca5a",
+        "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+        "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+        "JevApp/jev_app/app.py": "372b3d69d7abb364225efd59d85c3d0d3be65b2540667d116443a2f1c1ec722a",
+        "JevApp/jev_app/bridge.py": "ed2b7fb50cd1ee57d2381a68cf7f469f4247c923b7f8887b9dfe8e9f0716866d",
+        "JevApp/jev_app/choices.py": "b3b7e8e285cf4591de51a161235cbd285b1be83de974e1f237916b987af754cb",
+        "JevApp/jev_app/context.py": "362b12322e3a9583076ae14a8b22305e606a4596d09e7b457870a5e645b6bfd5",
+        "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+        "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+        "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+        "tests/ExternalAi/ScenarioApp.py": "128d0269e01bd02c1619c6177986da1c25a4d854ca95c1f83514e0983d394f92",
+        "tools/external-ai/run-dll-scenarios.py": "66fdb6a3a813ff288a825888c4e354361870389c5bc9e169fc275e5275bb32cc"
+      },
+      "scenarioChecks": {
+        "submitted_input_busy_released": true,
+        "no_submitted_input_ui_wait": true,
+        "real_native_hooks_installed": true,
+        "native_sysact_intercepted": true,
+        "competing_ui_input_suppressed": true,
+        "view_callbacks_preserved": true,
+        "target_cpu_evaluators_not_entered": true
+      }
+    },
+    {
+      "scenario": "native-hook-ui-twin",
+      "fixtureScenario": "twin-target",
+      "provider": "mock",
+      "exitCode": 0,
+      "scope": "isolated normal duel; production decoder/controller/worker and Hook<T> with host view/SysAct adapters",
+      "normalInitialization": true,
+      "nativeConsumed": 20,
+      "serverApplied": 20,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "nativeHookCount": 11,
+      "nativeSysActCalls": 1111,
+      "suppressedUiInputs": 20,
+      "originalViewCalls": 91,
+      "observedEventCount": 91,
+      "submittedUiBusyOverrides": 20,
+      "submittedUiBusyCalls": 0,
+      "cpuEvaluatorCalls": {
+        "main": [
+          0,
+          0,
+          0
+        ],
+        "battle": [
+          0,
+          0,
+          0
+        ],
+        "timing": [
+          0,
+          0,
+          0
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ],
+        "dialog": [
+          12,
+          0,
+          0
+        ]
+      },
+      "loaderSha256": "6185540596e65967d75b7183d5c4657d86363ce6b2d0b3a39693b28d29a0495c",
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "08dba5d9d57b5896e36e51817b1cbb872c4318c2d72121c12442f42819ccb53e",
+        "YgoMasterClient/Hook.cs": "dc8c9fcea9bf72b3a591719b2524d13446cee436e5a42958b9de31fbee1a475e",
+        "tests/ExternalAi/HookHost.cs": "981288561175554b02a6d3771126b86c413fd0da76fc4c4d1fdb333b893118fb",
+        "tests/ExternalAi/NativeHost.cs": "b7b692b3ff0a10a79061b031efda3ed57073ef3e27b3b863eac38b6a4694ca5a",
+        "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+        "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+        "JevApp/jev_app/app.py": "372b3d69d7abb364225efd59d85c3d0d3be65b2540667d116443a2f1c1ec722a",
+        "JevApp/jev_app/bridge.py": "ed2b7fb50cd1ee57d2381a68cf7f469f4247c923b7f8887b9dfe8e9f0716866d",
+        "JevApp/jev_app/choices.py": "b3b7e8e285cf4591de51a161235cbd285b1be83de974e1f237916b987af754cb",
+        "JevApp/jev_app/context.py": "362b12322e3a9583076ae14a8b22305e606a4596d09e7b457870a5e645b6bfd5",
+        "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+        "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+        "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+        "tests/ExternalAi/ScenarioApp.py": "128d0269e01bd02c1619c6177986da1c25a4d854ca95c1f83514e0983d394f92",
+        "tools/external-ai/run-dll-scenarios.py": "3cb7faca2fcbd897e9c1a1a2c4d66be6f28d29058f91d9b5a24f9b613127b8fb",
+        "YgoMasterClient/DuelDll.cs": "5d0f257553793e0ae0016d501e3bdc252ca4ea7857acfff91f50dbf5187bc318"
+      },
+      "scenarioChecks": {
+        "cost_card_reached_grave": true,
+        "two_distinct_targets_chosen": true,
+        "both_targets_reached_grave": true,
+        "another_target_confirmed_between_choices": true,
+        "submitted_input_busy_released": true,
+        "no_submitted_input_ui_wait": true,
+        "real_native_hooks_installed": true,
+        "native_sysact_intercepted": true,
+        "competing_ui_input_suppressed": true,
+        "view_callbacks_preserved": true,
+        "target_cpu_evaluators_not_entered": true,
+        "cpu_counter_actors_known": true
+      }
     }
   ],
   "textCatalogCounts": {
@@ -206,5 +374,38 @@
   "normalDuelVerifiedMixedTextTypes": [
     1,
     5
-  ]
+  ],
+  "realNativeHooksVerified": true,
+  "viewInputWaitReleaseVerified": true,
+  "observedCpuBypassVerified": true,
+  "uiWaitFailureReproduction": {
+    "nativeConsumed": 0,
+    "serverStates": [
+      "accepted"
+    ],
+    "submittedUiBusyCalls": 430,
+    "sourceHashes": {
+      "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+      "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+      "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+      "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+      "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+      "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+      "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+      "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+      "YgoMasterClient/DuelDll.ExternalAi.cs": "98cde6cbfbd89cbedd6c037ce947754973ef30ad92ce14095860d4beacb6e347",
+      "tests/ExternalAi/NativeHost.cs": "da9947da2bb03cd0e34ada8f001e63a8ac7774390a37084d00dfbeb443389e4b",
+      "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+      "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+      "JevApp/jev_app/app.py": "372b3d69d7abb364225efd59d85c3d0d3be65b2540667d116443a2f1c1ec722a",
+      "JevApp/jev_app/bridge.py": "ed2b7fb50cd1ee57d2381a68cf7f469f4247c923b7f8887b9dfe8e9f0716866d",
+      "JevApp/jev_app/choices.py": "b3b7e8e285cf4591de51a161235cbd285b1be83de974e1f237916b987af754cb",
+      "JevApp/jev_app/context.py": "362b12322e3a9583076ae14a8b22305e606a4596d09e7b457870a5e645b6bfd5",
+      "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+      "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+      "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+      "tests/ExternalAi/ScenarioApp.py": "128d0269e01bd02c1619c6177986da1c25a4d854ca95c1f83514e0983d394f92",
+      "tools/external-ai/run-dll-scenarios.py": "186f6f19abc83297af6f679c6c1c1d96de0cec237850682b396f7d5d1f968305"
+    }
+  }
 }

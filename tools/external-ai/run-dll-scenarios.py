@@ -54,6 +54,8 @@ def main():
     parser.add_argument("--provider", choices=("mock", "jev"), default="mock")
     parser.add_argument("--decisions", type=int, default=8)
     parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument("--ui-waits-for-input", action="store_true", help="simulate a view still waiting for its input button")
+    parser.add_argument("--loader", help="existing YgoMasterLoader.dll; enables production Hook<T> in the owned host")
     parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target"), default="basic")
     args = parser.parse_args()
     if not 1 <= args.decisions <= 100 or not 5 <= args.timeout <= 600:
@@ -65,11 +67,12 @@ def main():
     sources = ["ExternalAi/Protocol.cs", "ExternalAi/BridgeConfig.cs", "YgoMasterServer/Lib/MiniJSON.cs",
                "YgoMasterServer/Enums/Duel.cs", "YgoMasterServer/Enums/Misc.cs", "YgoMasterClient/ExternalAi/EngineProfile.cs",
                "YgoMasterClient/ExternalAi/InputSession.cs", "YgoMasterClient/ExternalAi/BridgeWorker.cs",
-               "YgoMasterClient/DuelDll.ExternalAi.cs", "tests/ExternalAi/NativeHost.cs"]
+               "YgoMasterClient/DuelDll.ExternalAi.cs", "YgoMasterClient/Hook.cs", "tests/ExternalAi/HookHost.cs", "tests/ExternalAi/NativeHost.cs"]
     compiler = Path(os.environ["WINDIR"]) / "Microsoft.NET/Framework64/v4.0.30319/csc.exe"
     source_hashes = {source: hashlib.sha256((ROOT / source).read_bytes()).hexdigest() for source in sources}
     for path in [*sorted((ROOT / "JevApp/jev_app").glob("*.py")), ROOT / "tests/ExternalAi/ScenarioApp.py", Path(__file__)]:
         source_hashes[path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    source_hashes["YgoMasterClient/DuelDll.cs"] = hashlib.sha256((ROOT / "YgoMasterClient/DuelDll.cs").read_bytes()).hexdigest()
     subprocess.run([str(compiler), "/nologo", "/unsafe", "/platform:x64", "/r:System.Web.Extensions.dll", f"/out:{host}",
                     *(str(ROOT / source) for source in sources)], cwd=ROOT, check=True)
     with socket.socket() as sock:
@@ -99,16 +102,31 @@ def main():
             app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],
                                    cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
             processes.append(app)
-            completed = subprocess.run([str(host), args.dll, args.data, str(config), str(args.decisions), str(args.timeout), args.scenario],
+            completed = subprocess.run([str(host), args.dll, args.data, str(config), str(args.decisions), str(args.timeout), args.scenario,
+                                        "ui-waits-for-input" if args.ui_waits_for_input else "no-ui", str(Path(args.loader).resolve()) if args.loader else ""],
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=args.timeout + 15)
             text = completed.stdout.decode("utf-8", errors="replace")
             (output / "native.log").write_text(text, encoding="utf-8")
             summary = next((json.loads(line[8:]) for line in text.splitlines() if line.startswith("SUMMARY ")), None)
             records = [] if summary is None else [bridge.get(r["decisionId"]) for r in summary["requests"]]
             checks = scenario_checks(summary, records, args.scenario)
+            if args.ui_waits_for_input and summary is not None:
+                checks.update(submitted_input_busy_released=summary["submittedUiBusyOverrides"] > 0,
+                              no_submitted_input_ui_wait=summary["submittedUiBusyCalls"] == 0)
+            if args.loader and summary is not None:
+                checks.update(real_native_hooks_installed=summary["nativeHookCount"] == 11,
+                              native_sysact_intercepted=summary["nativeSysActCalls"] > 0,
+                              competing_ui_input_suppressed=summary["suppressedUiInputs"] > 0,
+                              view_callbacks_preserved=summary["originalViewCalls"] > 0,
+                              target_cpu_evaluators_not_entered=all(counts[1] == 0 for counts in summary["cpuEvaluatorCalls"].values()),
+                              cpu_counter_actors_known=all(counts[2] == 0 for counts in summary["cpuEvaluatorCalls"].values()))
+                if args.scenario == "basic" and args.decisions >= 16:
+                    checks["other_cpu_proves_counters_active"] = sum(counts[0] for counts in summary["cpuEvaluatorCalls"].values()) > 0
             exit_code = completed.returncode if completed.returncode else (0 if all(checks.values()) else 4)
-            evidence = {"scope": "isolated normal duel, production decoder/controller/worker, no UI or injected hook",
+            scope = "isolated normal duel; production decoder/controller/worker and Hook<T> with host view/SysAct adapters" if args.loader else "isolated normal duel, production decoder/controller/worker, no UI or injected hook"
+            evidence = {"scope": scope, "loaderSha256": hashlib.sha256(Path(args.loader).read_bytes()).hexdigest() if args.loader else None,
                         "provider": args.provider, "scenario": args.scenario, "exitCode": exit_code, "sourceHashes": source_hashes,
+                        "hostCompileSources": sources,
                         "native": summary, "bridgeRecords": records, "scenarioChecks": checks}
             (output / "result.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
             print(json.dumps({"exitCode": exit_code, "nativeConsumed": len(summary["consumedIds"]) if summary else 0,

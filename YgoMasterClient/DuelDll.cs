@@ -461,7 +461,9 @@ namespace YgoMasterClient
 
         static int IsBusyEffect(int id)
         {
-            if (ExternalAiBusy(id) != 0) return 1;
+            // The external owner also releases this input after submitting. Falling back
+            // to a view still waiting for its input button would keep the engine blocked.
+            if (ExternalAiControlsBusy(id)) return ExternalAiBusy(id);
             if (HasNetworkError || SpecialFinishType != DuelFinishType.None)
             {
                 return originalIsBusyEffect(id);

@@ -107,12 +107,13 @@ namespace YgoMasterClient
                 ExternalAiDisableOnEngineThread();
             }
         }
-        static int ExternalAiBusy(int effectId)
+        static bool ExternalAiControlsBusy(int effectId)
         {
             // The list producer emits RunList (56), but polls IsBusyEffect with RunDialog (55).
-            return externalAiInput != null && externalAiInput.Hold &&
-                (externalAiInput.EffectId == effectId || (externalAiInput.EffectId == 56 && effectId == 55)) ? 1 : 0;
+            return ExternalAiOwnsInput &&
+                (externalAiInput.EffectId == effectId || (externalAiInput.EffectId == 56 && effectId == 55));
         }
+        static int ExternalAiBusy(int effectId) { return ExternalAiControlsBusy(effectId) && externalAiInput.Hold ? 1 : 0; }
         static void ExternalAiBeforeSysAct()
         {
             if (!externalAiEnabled || externalAiInput == null) return;

@@ -81,6 +81,10 @@ namespace YgoMasterClient
             GCHandle pin = GCHandle.Alloc(File.ReadAllBytes(path), GCHandleType.Pinned); buffers.Add(pin); return pin.AddrOfPinnedObject();
         }
         static List<object> requests = new List<object>();
+        static bool uiWaitsForInput;
+        static int submittedUiBusyCalls;
+        static int submittedUiBusyOverrides;
+        static Run view = (id, a, b, c) => { originalViewCalls++; return 0; };
         static HashSet<string> seen = new HashSet<string>(), consumed = new HashSet<string>();
         static void Observe(InputSession previous)
         {
@@ -125,9 +129,24 @@ namespace YgoMasterClient
             Console.WriteLine("EVENT " + id + " " + a + " " + b + " " + c);
             ExternalAiOnRunEffect(id, a, b, c);
             Observe(previous);
-            return 0;
+            return originalViewCallback(id, a, b, c);
         };
-        static Get1 busy = id => ExternalAiBusy(id);
+        static Get1 busy = id => {
+            if (ExternalAiControlsBusy(id))
+            {
+                if (uiWaitsForInput && externalAiInput.Submitted) submittedUiBusyOverrides++;
+                return ExternalAiBusy(id);
+            }
+            return originalViewBusy(id);
+        };
+        static int ViewBusy(int id)
+        {
+            // A view can still await its button action after the app submits a result.
+            if (uiWaitsForInput && ExternalAiOwnsInput && externalAiInput.Submitted &&
+                (externalAiInput.EffectId == id || (externalAiInput.EffectId == 56 && id == 55)))
+            { submittedUiBusyCalls++; return 1; }
+            return 0;
+        }
         static void BindExports()
         {
             hookDLL_DuelSetPlayerType = Export<Set2>("DLL_DuelSetPlayerType");
@@ -160,9 +179,12 @@ namespace YgoMasterClient
         {
             string dllPath = args[0], data = args[1]; ClientSettings.ExternalAiConfigPath = args[2];
             int decisionCount = int.Parse(args[3]), timeoutSeconds = int.Parse(args[4]);
+            uiWaitsForInput = args.Length > 6 && args[6] == "ui-waits-for-input";
+            originalViewCallback = view; originalViewBusy = ViewBusy;
             module = LoadLibrary(dllPath); if (module == IntPtr.Zero) throw new Exception("DLL load failed");
             BindExports(); ExternalAiInit(module, dllPath);
             if (externalAiWorker == null) throw new Exception("bridge/profile not initialized");
+            if (args.Length > 7 && !string.IsNullOrEmpty(args[7])) InstallNativeHooks(args[7]);
             string[] paths = {"#/CARD_IntID.bytes", "#/CARD_Prop.bytes", "MD/CARD_Same.bytes", "#/CARD_Genre.bytes", "#/CARD_Named.bytes", "MD/CARD_Link.bytes"};
             string[] setters = {"DLL_SetInternalID", "DLL_SetCardProperty", "DLL_SetCardSame", "DLL_SetCardGenre", "DLL_SetCardNamed", "DLL_SetCardLink"};
             for (int i = 0; i < paths.Length; i++)
@@ -174,8 +196,11 @@ namespace YgoMasterClient
             }
             Work setWork = Bind<Work>("DLL_SetWorkMemory");
             int size = setWork(IntPtr.Zero); if (size != EngineProfile.WorkSize) throw new Exception("work size mismatch");
-            IntPtr work = Marshal.AllocHGlobal(size); setWork(work); externalAiProfile.SetWork(work);
-            Bind<Pointers>("DLL_SetEffectDelegate")(Marshal.GetFunctionPointerForDelegate(callback), Marshal.GetFunctionPointerForDelegate(busy));
+            IntPtr work = Marshal.AllocHGlobal(size); setWork(work);
+            if (nativeHooks.Count == 0) externalAiProfile.SetWork(work);
+            Bind<Pointers>("DLL_SetEffectDelegate")(
+                Marshal.GetFunctionPointerForDelegate(nativeHooks.Count > 0 ? view : callback),
+                Marshal.GetFunctionPointerForDelegate(nativeHooks.Count > 0 ? originalViewBusy : busy));
             Bind<Void0>("DLL_DuelSysClearWork")();
             ExternalAiBegin(GameMode.SoloSingle);
             Bind<Set1>("DLL_DuelSetMyPlayerNum")(0);
@@ -185,8 +210,16 @@ namespace YgoMasterClient
             int cardId = scenario == "spell-target" ? 4909 : scenario == "discard-two" ? 4812 : scenario == "twin-target" ? 12175 : 4084;
             int[] main = Enumerable.Repeat(cardId, 40).ToArray();
             deck(0, main, main.Length, new int[0], 0, new int[0], 0); deck(1, main, main.Length, new int[0], 0, new int[0], 0);
-            hookDLL_DuelSetPlayerType.Original(0, 1);
-            hookDLL_DuelSetPlayerType.Original(1, ExternalAiPlayerType(1, 1));
+            if (nativeHooks.Count > 0)
+            {
+                Bind<Set2>("DLL_DuelSetPlayerType")(0, 1);
+                Bind<Set2>("DLL_DuelSetPlayerType")(1, 1);
+            }
+            else
+            {
+                hookDLL_DuelSetPlayerType.Original(0, 1);
+                hookDLL_DuelSetPlayerType.Original(1, ExternalAiPlayerType(1, 1));
+            }
             Bind<Set1>("DLL_DuelSetFirstPlayer")(1);
             Bind<SetUInt>("DLL_DuelSetDuelLimitedType")(0);
             Bind<Init>("DLL_DuelSysInitCustom")(0, false, 8000, 8000, 5, 5, false);
@@ -194,13 +227,9 @@ namespace YgoMasterClient
             Get0 tick = Bind<Get0>("DLL_DuelSysAct"); Stopwatch watch = Stopwatch.StartNew();
             while (watch.Elapsed < TimeSpan.FromSeconds(timeoutSeconds) && consumed.Count < decisionCount)
             {
-                ExternalAiBeforeSysAct();
                 if (!externalAiEnabled) break;
-                Action[] queued;
-                lock (ActionsToRunInNextSysAct) { queued = ActionsToRunInNextSysAct.ToArray(); ActionsToRunInNextSysAct.Clear(); }
-                foreach (Action action in queued) action();
-                InputSession previous = externalAiInput;
-                int result = tick(); ExternalAiAfterSysAct(result); Observe(previous);
+                AttemptCompetingUiInput();
+                int result = nativeHooks.Count > 0 ? tick() : ControlledTick(tick);
                 if (result != 0) break;
                 Thread.Sleep(5);
             }
@@ -211,7 +240,10 @@ namespace YgoMasterClient
             Console.WriteLine("SUMMARY " + Protocol.Serialize(new Dictionary<string, object> {
                 {"normalInitialization", true}, {"profileSha256", EngineProfile.Sha256}, {"requests", requests},
                 {"consumedIds", consumed.ToArray()}, {"targetPlayerType", externalAiProfile.Read32(0x2c5cbc + 12)},
-                {"elapsedSeconds", watch.Elapsed.TotalSeconds}, {"gameProcessInjected", false}, {"finalCards", finalCards}
+                {"elapsedSeconds", watch.Elapsed.TotalSeconds}, {"gameProcessInjected", false}, {"finalCards", finalCards},
+                {"uiWaitsForInput", uiWaitsForInput}, {"submittedUiBusyCalls", submittedUiBusyCalls}, {"submittedUiBusyOverrides", submittedUiBusyOverrides},
+                {"nativeHookCount", nativeHooks.Count}, {"nativeSysActCalls", nativeSysActCalls},
+                {"suppressedUiInputs", suppressedUiInputs}, {"originalViewCalls", originalViewCalls}, {"cpuEvaluatorCalls", cpuEvaluatorCalls}
             }));
             Thread.Sleep(1500);
             externalAiWorker.Dispose();
