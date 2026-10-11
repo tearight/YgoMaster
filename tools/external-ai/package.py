@@ -18,7 +18,7 @@ def main():
         "YgoMaster/YgoMasterClient.exe.config", "ExternalAi.example.json", "LICENSE",
         "tools/external-ai/Setup-ExternalAi.ps1", "tools/external-ai/Start-ExternalAiBridge.ps1",
         "tools/external-ai/Start-JevApp.ps1", "Docs/external-ai/README.md", "Docs/external-ai/protocol.md",
-        "Docs/external-ai/coverage.md")]
+        "Docs/external-ai/coverage.md", "Docs/external-ai/validation-summary.json")]
     files += sorted((ROOT / "JevApp/jev_app").glob("*.py"))
     missing = [str(p.relative_to(ROOT)) for p in files if not p.is_file()]
     if missing:
@@ -31,8 +31,9 @@ def main():
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:
         for path in files:
             archive.write(path, path.relative_to(ROOT).as_posix())
+        archive.write(ROOT / "Docs/external-ai/START-HERE.txt", "START-HERE.txt")
         archive.writestr("delivery-manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
-    print(json.dumps({"output": str(output), "fileCount": len(files) + 1, "bytes": output.stat().st_size}))
+    print(json.dumps({"output": str(output), "fileCount": len(files) + 2, "bytes": output.stat().st_size}))
 
 
 if __name__ == "__main__":

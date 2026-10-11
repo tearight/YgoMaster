@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-11",
+  "status": "in_progress",
+  "bridgeAppTestsPassed": 10,
+  "inputSessionChecksPassed": true,
+  "cardCatalogCount": 14323,
+  "realJevVerified": false,
+  "injectedUiVerified": false,
+  "multiMaterialVerified": false,
+  "dllSha256": "97bd4d136e39b0872e4a8a9171632f1f0bd9bb04d69af08e836c56e684d43c44",
+  "runs": [
+    {
+      "scenario": "basic",
+      "provider": "mock",
+      "exitCode": 0,
+      "normalInitialization": true,
+      "nativeConsumed": 8,
+      "serverApplied": 8,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "d1e6620b8efaa2af37a787f9ca6da346032e6f4797dd01e360680a9bfb2d0adf",
+        "tests/ExternalAi/NativeHost.cs": "4ad494a771965f4d84834e991593852192f3af544c80d6e6915427e2b2836de0"
+      }
+    },
+    {
+      "scenario": "spell-target",
+      "provider": "mock",
+      "exitCode": 0,
+      "normalInitialization": true,
+      "nativeConsumed": 16,
+      "serverApplied": 16,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "d1e6620b8efaa2af37a787f9ca6da346032e6f4797dd01e360680a9bfb2d0adf",
+        "tests/ExternalAi/NativeHost.cs": "4ad494a771965f4d84834e991593852192f3af544c80d6e6915427e2b2836de0"
+      },
+      "targetEvidence": {
+        "selectedUniqueId": 65,
+        "selectedPosition": 7,
+        "laterObservedInGrave": true,
+        "parentDecisionLinked": true
+      }
+    }
+  ]
+}
