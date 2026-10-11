@@ -7,7 +7,6 @@ import time
 import uuid
 from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 
 MAX_BODY = 30000  # Same conservative request budget as the production Jev adapter.
 
@@ -136,14 +135,13 @@ class Handler(BaseHTTPRequestHandler):
         return (self.headers.get("Host") == self.server.origin.removeprefix("http://") and
                 self.headers.get("Origin") in (None, self.server.origin))
 
-    def reply(self, status, value, html=False):
-        raw = value.encode() if html else json.dumps(value, ensure_ascii=False, allow_nan=False).encode()
+    def reply(self, status, value):
+        raw = json.dumps(value, ensure_ascii=False, allow_nan=False).encode()
         self.send_response(status)
-        self.send_header("Content-Type", "text/html; charset=utf-8" if html else "application/json; charset=utf-8")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
         self.end_headers()
         try:
             self.wfile.write(raw)
@@ -164,7 +162,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed():
             self.reply(403, {"error": "local_origin_only"})
         elif self.path == "/":
-            self.reply(200, Path(__file__).with_name("human.html").read_text(encoding="utf-8"), html=True)
+            self.reply(200, {"interface": "terminal", "endpoint": self.server.origin + "/v1/systemone"})
         elif self.path == "/api/pending":
             self.reply(200, self.server.view())
         else:
@@ -214,19 +212,94 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(408, {"error": "incomplete_request_body"})
 
 
+def describe(value):
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, indent=2)
+
+
+def answer_terminal(server, job, read=input, write=print):
+    query, answers = job["query"], {}
+    write("\n현재 맥락\n" + describe(query["state"]))
+    write(f"\n응답 가능 시간: {job['remainingSeconds']}초 · 취소: c")
+    for key, question in query["questions"].items():
+        write("\n" + describe(question["instructions"]))
+        kind, criteria = question["type"], question.get("criteria")
+        if kind == "noul":
+            write("true (1): " + describe((criteria or {}).get("true", "예")))
+            write("false (0): " + describe((criteria or {}).get("false", "아니오")))
+            prompt = "답변 [true/false]: "
+        else:
+            options = criteria if kind == "choice" else {str(i): label for i, label in enumerate(criteria)}
+            keys = list(options)
+            for index, option in enumerate(keys, 1):
+                write(f"{index}. {describe(options[option])}")
+            prompt = f"선택 [1-{len(keys)}]: "
+        while True:
+            current = server.view()["job"]
+            if current is None or current["id"] != job["id"]:
+                write("이 요청은 종료되었습니다. 입력을 적용하지 않았습니다.")
+                return None
+            value = read(prompt).strip().lower()
+            if value == "c":
+                try:
+                    server.respond(job["id"], cancel=True)
+                    write("요청을 취소했습니다.")
+                except ValueError as error:
+                    if str(error) != "request_no_longer_pending":
+                        raise
+                    write("이 요청은 종료되었습니다. 입력을 적용하지 않았습니다.")
+                return None
+            if kind == "noul" and value in ("true", "false", "1", "0"):
+                answers[key] = value in ("true", "1")
+                break
+            if kind != "noul" and len(value) <= 3 and value.isascii() and value.isdecimal() and 1 <= int(value) <= len(keys):
+                selected = keys[int(value) - 1]
+                answers[key] = {option: option == selected for option in keys}
+                break
+            write("true 또는 false를 입력하세요." if kind == "noul" else f"1부터 {len(keys)} 사이 번호를 입력하세요.")
+    try:
+        response = server.respond(job["id"], answers)["response"]
+    except ValueError as error:
+        if str(error) != "request_no_longer_pending":
+            raise
+        write("이 요청은 종료되었습니다. 입력을 적용하지 않았습니다.")
+        return None
+    write("\n반환한 응답\n" + describe(response))
+    return response
+
+
 def main():
     parser = argparse.ArgumentParser(description="Jev 역할을 사용자가 맡는 로컬 인터페이스")
     parser.add_argument("--port", type=int, default=49173)
+    parser.add_argument("--practice", action="store_true", help="게임 없이 연습 질문에 답한 뒤 종료")
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("port must be 1024..65535")
     with HumanServer(args.port) as server:
-        print("직접 선택 화면: " + server.origin, flush=True)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        print("Jev 대신 터미널에서 직접 선택합니다. 종료: Ctrl+C", flush=True)
         print("Jev 형식 입력: " + server.origin + "/v1/systemone", flush=True)
+        print("질문을 기다립니다. 기한이 지난 입력은 Enter를 누르면 폐기합니다.", flush=True)
+        if args.practice:
+            server.queue({"model": "jev-1.13.0", "state": "터미널 입력과 1/0 반환을 확인하는 연습입니다.", "questions": {
+                "action": {"type": "choice", "instructions": "어느 행동을 선택할까요?",
+                           "criteria": {"summon": "몬스터를 소환한다", "end": "턴을 종료한다"}},
+                "ready": {"type": "noul", "instructions": "선택을 확정할 준비가 됐나요?"}}}, "practice", 600)
         try:
-            server.serve_forever()
-        except KeyboardInterrupt:
+            while True:
+                job = server.view()["job"]
+                if job:
+                    answer_terminal(server, job)
+                    if args.practice:
+                        break
+                    print("\n다음 질문을 기다립니다.", flush=True)
+                else:
+                    time.sleep(.2)
+        except (KeyboardInterrupt, EOFError):
             pass
+        finally:
+            server.shutdown()
+            worker.join(timeout=2)
 
 
 if __name__ == "__main__":

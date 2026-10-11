@@ -1,7 +1,7 @@
 {
   "date": "2026-10-12",
-  "status": "human_interface_verified",
-  "bridgeAppTestsPassed": 18,
+  "status": "human_terminal_interface_verified",
+  "bridgeAppTestsPassed": 19,
   "inputSessionChecksPassed": true,
   "cardCatalogCount": 14323,
   "realJevVerified": false,
@@ -880,7 +880,7 @@
   },
   "bridgeResponseBoundsVerified": true,
   "currentBridgeVerification": {
-    "testsPassed": 18,
+    "testsPassed": 19,
     "serverExecutableSha256": "8aa28a4bd096c0c14c92cb694a9677a01dd2730d71e886c503e7cba257cdb556",
     "sourceHashes": {
       "YgoMasterServer/ExternalAi/DecisionStore.cs": "4eee69b8b8268f18fc536caff6c3e3858ff7163f43aacbc690fb4e18edd4956f",
@@ -888,25 +888,28 @@
       "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
       "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
       "JevApp/tests/test_external_ai.py": "ba4a064f6007c55b6e3bcb525cb5084aa7be439ab1a04d7560b2b36a589f2a5a",
-      "JevApp/tests/test_human.py": "2edf06130b4ae11c9a7a27fa27ff8c44235df525610ec701811ca00f52524202",
+      "JevApp/tests/test_human.py": "a2d22334bc566ee2cecc3a77375a854765034be58f454fbdbc4842f6f130560b",
       "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
       "JevApp/jev_app/__main__.py": "9d788c91f23c14a152c8a63631636f9e114e7ec2585412f630b5f86e77c0f68d",
       "JevApp/jev_app/app.py": "1c7412b8f7a6f3ced01f5e6f6762eadd97ebdcb18d6ba782b3409495728402a1",
       "JevApp/jev_app/bridge.py": "f1afc4c3d1c662f28be95a30da7d395a7dcbe9d572f41bcd68b506ea8682a6e5",
       "JevApp/jev_app/choices.py": "31388c3e96d3787d27c99c8f8c68e200326a899e4ae8293dec888237c85368ca",
       "JevApp/jev_app/context.py": "820132ab2ac76d9d61a6e0c969c6390eb482e463e7e33fb51e173d4d7dc292d2",
-      "JevApp/jev_app/human.html": "5c3c57bbaa866d8c8f6265efca0c23f195c7ce61100ea08b1cf73e7724a1ac2a",
-      "JevApp/jev_app/human.py": "bfdff946cbc361a5b3fa087f73810ce17d91691eee6bdc07fa874c4a6046b3cd",
+      "JevApp/jev_app/human.py": "e2255c95f13a3acc2136c914fd5004750e88c384873460b9c712b3acc4abd9fc",
       "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
       "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
       "JevApp/jev_app/provider.py": "303627e8fac3ff9cee262af98871771d009a971b9613a324edb1ccec99e328b8"
     },
-    "testLogSha256": "a3505f511909e378c1a72f5c9cced0d2dac18b534fa927bf305cb4c44c7b0ba7"
+    "testCommand": "py -3 -m unittest discover -s JevApp/tests -v",
+    "testDurationSeconds": 4.675,
+    "testResult": "OK"
   },
   "humanInterfaceVerified": true,
   "humanBinaryResponsesVerified": true,
-  "humanBrowserVerified": true,
-  "humanBrowserEvidence": {
+  "humanTerminalVerified": true,
+  "humanInputInterface": "terminal",
+  "previousHumanBrowserVerified": true,
+  "previousHumanBrowserEvidence": {
     "choiceWeights": {
       "summon": 0,
       "end": 1
@@ -927,6 +930,49 @@
       "Jev-human-interface-result.png": "d6a16e584f00ffa83a1edd4fc7251bc8ecbcf57eb3827326979a7ebd6c724306",
       "Jev-human-interface-generic.png": "d346714b0844524929345a9b5da8ad25a5e894634f7150381e4d5fd9bc9d79c5"
     },
-    "responseSha256": "c19eb8ef352a8849fdf12d0e0ed7de6af6c9807de9e6481ecc9af0b070c8be51"
+    "responseSha256": "c19eb8ef352a8849fdf12d0e0ed7de6af6c9807de9e6481ecc9af0b070c8be51",
+    "commit": "fb78299f10d8a44fbbe9d778efe99f78e9e5d7b1"
+  },
+  "humanTerminalEvidence": {
+    "input": [
+      "2",
+      "false"
+    ],
+    "exitCode": 0,
+    "response": {
+      "model": "human-dummy",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "probabilities": {
+            "summon": 0,
+            "end": 1
+          },
+          "confidence": 1,
+          "choice": "end"
+        },
+        "ready": {
+          "type": "noul",
+          "noul": 0
+        }
+      },
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    },
+    "testsPassed": 19,
+    "testCommand": "py -3 -m unittest discover -s JevApp/tests -v",
+    "testDurationSeconds": 4.675,
+    "sourceHashes": {
+      "JevApp/jev_app/human.py": "e2255c95f13a3acc2136c914fd5004750e88c384873460b9c712b3acc4abd9fc",
+      "tools/external-ai/Start-HumanJev.ps1": "1374d3e4f8f1d90cc78ab3f9a4024242bf224e0aeb2eec5630db17daa92a0f5f"
+    },
+    "liveJevCalled": false,
+    "htmlRemoved": true,
+    "wrongInputRepromptVerified": true,
+    "lateInputAndCancelVerified": true,
+    "choiceNoulScoreHttpReturnVerified": true,
+    "priorNativeEvidenceReused": "DLL/controller/bridge/provider code unchanged; human terminal input tested separately"
   }
 }

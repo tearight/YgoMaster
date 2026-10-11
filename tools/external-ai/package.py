@@ -21,12 +21,11 @@ def main():
         "tools/external-ai/Start-HumanJev.ps1",
         "Docs/external-ai/coverage.md", "Docs/external-ai/validation-summary.json")]
     files += sorted((ROOT / "JevApp/jev_app").glob("*.py"))
-    files += sorted((ROOT / "JevApp/jev_app").glob("*.html"))
     missing = [str(p.relative_to(ROOT)) for p in files if not p.is_file()]
     if missing:
         parser.error("required build/package files missing: " + ", ".join(missing))
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    manifest = {"commit": commit, "stage": "human-operated Jev interface verified; live Jev and injected game UI not verified",
+    manifest = {"commit": commit, "stage": "terminal-operated Jev interface verified; live Jev and injected game UI not verified",
                 "files": {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}}
     manifest["files"]["START-HERE.txt"] = hashlib.sha256((ROOT / "Docs/external-ai/START-HERE.txt").read_bytes()).hexdigest()
     output = Path(args.output).resolve()

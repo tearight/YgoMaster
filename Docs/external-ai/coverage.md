@@ -5,7 +5,8 @@
 | 검사 | 결과 | 범위 |
 |---|---|---|
 | client/server Framework C# 빌드 | 성공 | 기존 MSBuild/csc 사용. .NET 4.8 참조 팩 부재로 설치된 GAC를 사용하는 경고가 남음 |
-| bridge/app/수동 더미 자동 검사 | 18개 통과 | 기존 15개 + Choice/Noul/Score의 Boolean 입력·1/0 출력, 재전송·기한·취소·Origin 검사, 수동 Choice→순서 있는 엔진 행동 매핑 |
+| bridge/app/수동 더미 자동 검사 | 19개 통과 | 기존 18개 + 터미널 번호/Boolean 입력·잘못된 답 재입력·취소·늦은 취소, 실제 HTTP 1/0 반환 |
+| 실제 터미널 연습 입력 | 통과 | 실행 도우미의 -Practice로 시작해 2와 false 입력. choice=end, 가중치 summon=0/end=1, noul=0 반환 후 종료 코드 0 |
 | InputSession 검사 | 통과 | 엔진 스레드 소유, 한 번 적용, 순서 매핑, 지연 session 거절, 명시적 소비 확인 |
 | 실제 추출 카드 데이터 | 14,323개 읽음 | 카드 ID→이름·설명. 원본 자산은 읽기만 함 |
 | 정상 초기화 DLL — basic | 8개 consumed / 8개 applied | 효과 확인, 일반 소환, 위치 선택, 필드 반영, 페이즈 이동 |
@@ -30,7 +31,7 @@ DLL host는 생산 decoder/controller/worker를 그대로 컴파일하고, IL2CP
 
 제어 대상 player type이 Human(0)인 상태에서 엔진이 외부 입력을 소비했습니다. 기존 연구에서 이 타입이 CPU 평가 분기를 우회함을 확인했습니다. 추가 native-hook basic fixture는 원래 함수로 전달하는 계측 훅을 넣었습니다. 제어 대상 player 1은 main/battle/timing/other/dialog 진입이 모두 0이었으며, player 0은 main 97회·other 3회·dialog 20회로 계측이 활성화됨을 확인했습니다. 이 증거의 범위는 해당 정상 초기화 듀얼의 관측한 경로입니다. 모든 카드와 실제 게임 화면의 전체 실행을 계측한 것으로 확대하지 않습니다.
 
-모의 provider 성공과 실제 Jev 성공은 구분합니다. 앞선 자동 듀얼 fixture는 `mock`을, 이번 브라우저 검사는 `human`을 사용했습니다. 선택지 문구는 두 경우 모두 LLM 없이 생성합니다.
+모의 provider 성공과 실제 Jev 성공은 구분합니다. 앞선 자동 듀얼 fixture는 `mock`을, 이전 브라우저 검사는 `human`을 사용했습니다. 선택지 문구는 두 경우 모두 LLM 없이 생성합니다. 현재 터미널 변경은 사람의 입력 방식만 바꾸며, DLL과 연결 앱의 계약은 유지합니다. 앞선 DLL 검사를 반복하지 않고 변경한 터미널 입력과 HTTP 반환을 확인했습니다.
 
 버리기·Twin Twisters·Magic Jammer·덱 정렬 fixture는 검사용 별도 provider를 사용합니다. 버리기에서는 마지막 합법 후보를 고르고, Twin Twisters에서는 두 카드를 세트한 뒤 추가 대상 질문에 동의하며, Magic Jammer에서는 상대 마법에 대응하고, 덱 정렬에서는 마지막 순서 후보를 고릅니다. 생산 앱의 Jev 선택을 대신하는 규칙이 아닙니다. Runner는 선택한 카드의 묘지 UID 또는 실제 덱 순서·다음 드로우를 자동 대조하며, 소비/적용 횟수가 맞더라도 이 대조가 실패하면 실패로 종료합니다. 각 기록의 source hash를 보존하므로 앞선 basic/spell-target 검사와 추가 검사의 소스 버전을 구분할 수 있습니다.
 
@@ -76,12 +77,12 @@ py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-chain' --scenario chain-cost --decisions 20 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-deck-order' --scenario deck-order --decisions 24 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-app-restart' --scenario basic --decisions 8 --ui-waits-for-input --restart-app-after 3
-py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-human-browser' --scenario basic --provider human --decisions 6 --ui-waits-for-input --timeout 600
+py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-human-terminal' --scenario basic --provider human --decisions 6 --ui-waits-for-input --timeout 600
 ```
 
 각 output의 `result.json`은 provider, source hash, 엔진 소비 ID, 서버 기록을 포함하고 `native.log/app.log/server.log`를 따로 남깁니다. 로컬 설정과 bridge token은 Git에서 제외됩니다.
 
-human 검사에서는 더미 프로그램과 선택 화면을 먼저 열고 각 질문을 직접 반환합니다. 자동 검사보다 사람이 읽고 선택하는 시간이 길어 전체 host 기한을 600초로 둡니다. 요청별 기한은 120초이며 화면에 남은 시간을 표시합니다. 최초 180초 host 검사는 4건을 적용한 뒤 전체 기한이 끝났고, 늘린 기한의 최종 검사에서 6건 모두 적용됐습니다. 최종 검사에서 표시 콜백 44개 전달과 상충 입력 6개 차단도 확인했습니다. 실측 API 호출 없이 입력 인터페이스를 확인하는 검사입니다.
+human 검사에서는 더미 프로그램을 먼저 실행하고 터미널에서 각 질문을 직접 반환합니다. 전체 host 기한은 600초, 요청별 기한은 120초입니다. 앞선 브라우저 검사에서 최초 180초 host는 4건 적용 뒤 전체 기한이 끝났고, 늘린 기한의 최종 검사에서 6건 모두 적용됐습니다. 이 기록에는 표시 콜백 44개 전달과 상충 입력 6개 차단도 있습니다. 현재 터미널의 기한 초과 입력은 Enter를 누르면 폐기합니다. 실측 API 호출 없이 입력 인터페이스를 확인하는 검사입니다.
 
 실제 키가 준비된 경우 같은 검사에 `--provider jev --decisions 3 --timeout 120`을 붙여 최소 호출로 연결을 확인할 수 있습니다. 이 검사는 실제 API 호출 비용이 발생합니다. 아직 수행하지 않은 검사의 예시 명령입니다.
 

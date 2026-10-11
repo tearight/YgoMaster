@@ -9,7 +9,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, build_opener, ProxyHandler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from jev_app.human import HumanServer
+from jev_app.human import HumanServer, answer_terminal
 
 
 class HumanInterface(unittest.TestCase):
@@ -94,6 +94,31 @@ class HumanInterface(unittest.TestCase):
                 cancelled.result(timeout=2)
             self.assertEqual(failure.exception.code, 409)
             failure.exception.close()
+
+    def test_terminal_reprompts_and_returns_binary_answers_over_http(self):
+        query = {"model": "jev-1.13.0", "state": "현재 턴", "questions": {
+            "action": {"type": "choice", "instructions": "행동", "criteria": {"summon": "소환", "end": "턴 종료"}},
+            "ready": {"type": "noul", "instructions": "준비됐나요?"},
+            "level": {"type": "score", "instructions": "수준", "criteria": ["낮음", "중간", "높음"]}}}
+        inputs, output = iter(["0", "2", "maybe", "false", "3"]), []
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            result = pool.submit(self.call, "/v1/systemone", query)
+            response = answer_terminal(self.server, self.pending(), read=lambda _: next(inputs), write=output.append)
+            self.assertEqual(result.result(timeout=2), response)
+        self.assertEqual(response["answers"]["action"]["probabilities"], {"summon": 0, "end": 1})
+        self.assertEqual(response["answers"]["ready"]["noul"], 0)
+        self.assertEqual(response["answers"]["level"]["probabilities"], {"0": 0, "1": 0, "2": 1})
+        self.assertIn("1부터 2 사이 번호를 입력하세요.", output)
+        self.assertIn("true 또는 false를 입력하세요.", output)
+        for request_id, input_value in (("terminal-cancel", "c"), ("terminal-expired", "c")):
+            self.server.queue(query, request_id, .02 if request_id.endswith("expired") else 3)
+            job = self.server.view()["job"]
+            def read(_):
+                if request_id.endswith("expired"):
+                    time.sleep(.03)
+                return input_value
+            self.assertIsNone(answer_terminal(self.server, job, read=read, write=output.append))
+            self.assertEqual(self.server.jobs[request_id]["status"], "expired" if request_id.endswith("expired") else "cancelled")
 
 
 if __name__ == "__main__":

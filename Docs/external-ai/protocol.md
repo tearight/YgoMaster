@@ -2,11 +2,11 @@
 
 ## 사용자가 Jev 역할을 하는 로컬 더미
 
-기본 앱 provider는 `human`입니다. 기존 Jev adapter가 같은 `model/state/questions` JSON을 숫자 loopback 주소의 `/v1/systemone`에 보내고, 별도 더미 프로그램이 브라우저의 사용자 답변을 기다립니다. API 키를 읽거나 전송하지 않습니다. 현재 앱 연결은 Choice 질문 `action`을 사용하며, 더미 자체는 Jev의 `choice/noul/score` 세 타입을 처리합니다.
+기본 앱 provider는 `human`입니다. 기존 Jev adapter가 같은 `model/state/questions` JSON을 숫자 loopback 주소의 `/v1/systemone`에 보내고, 별도 더미 프로그램이 터미널의 사용자 답변을 기다립니다. API 키를 읽거나 전송하지 않습니다. 현재 앱 연결은 Choice 질문 `action`을 사용하며, 더미 자체는 Jev의 `choice/noul/score` 세 타입을 처리합니다.
 
-화면의 제출 본문은 `{jobId, answers}`입니다. Noul의 값은 Boolean이고, Choice/Score는 모든 후보를 Boolean으로 표시해 정확히 하나만 true여야 합니다. 숫자 1/0을 사용자 입력 Boolean의 대신으로 받지 않습니다. 더미가 응답 직전에 Boolean을 정수로 변환합니다. Choice는 `choice`와 후보별 `probabilities` 1/0, Noul은 `noul` 1/0, Score는 선택한 0부터 시작하는 수준 번호·`legend`·수준별 `probabilities` 1/0을 반환합니다. Choice/Score의 `confidence=1`은 수동 확인값입니다. `model=human-dummy`, `usage`의 두 token 값은 0입니다.
+터미널은 Choice/Score의 번호를 모든 후보의 Boolean으로 변환해 고른 항목만 true로 만듭니다. Noul의 `true/false` 또는 `1/0` 문자열은 Boolean으로 변환합니다. 내부 답변의 값은 여전히 Boolean이어야 하며, HTTP `/api/respond`에 숫자 1/0을 직접 보내면 거절합니다. 더미가 응답 직전에 Boolean을 정수로 변환합니다. Choice는 `choice`와 후보별 `probabilities` 1/0, Noul은 `noul` 1/0, Score는 선택한 0부터 시작하는 수준 번호·`legend`·수준별 `probabilities` 1/0을 반환합니다. Choice/Score의 `confidence=1`은 수동 확인값입니다. `model=human-dummy`, `usage`의 두 token 값은 0입니다.
 
-더미는 최대 30,000 UTF-8 byte의 요청, 대기 8건, 최근 기록 64건을 메모리에서 보유합니다. `X-Human-Request-Id`가 같고 본문도 같으면 수동 응답을 재사용하며, 다른 본문은 409입니다. `X-Human-Timeout`은 최대 600초이고 연결 앱은 남은 요청 기한을 사용합니다. 기한 초과는 408, 취소는 409, 질문/답변 형식 오류는 422, 대기 용량 초과는 429입니다. 브라우저 응답은 같은 Origin과 정확한 로컬 Host에서만 받습니다. 앱은 반환 직전에도 bridge 요청이 유효한지 다시 확인합니다. 연습 버튼도 같은 `/v1/systemone` HTTP 경로를 사용합니다.
+더미는 최대 30,000 UTF-8 byte의 요청, 대기 8건, 최근 기록 64건을 메모리에서 보유합니다. `X-Human-Request-Id`가 같고 본문도 같으면 수동 응답을 재사용하며, 다른 본문은 409입니다. `X-Human-Timeout`은 최대 600초이고 연결 앱은 남은 요청 기한을 사용합니다. 기한 초과는 408, 취소는 409, 질문/답변 형식 오류는 422, 대기 용량 초과는 429입니다. HTTP 요청은 같은 Origin과 정확한 로컬 Host에서만 받습니다. 앱은 반환 직전에도 bridge 요청이 유효한지 다시 확인합니다. `--practice`는 동일한 Jev 질문을 로컬 큐에 넣고 터미널에서 답한 뒤 종료합니다. HTML 파일은 제공하지 않습니다.
 
 ## DLL과 연결 앱 사이의 중계
 
