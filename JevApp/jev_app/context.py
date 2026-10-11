@@ -4,7 +4,10 @@ from collections import deque
 
 def visible_observation(observation):
     result = deepcopy(observation)
-    for card in result.get("cards", []) + result.get("selectionContext", {}).get("sourceCards", []):
+    references = result.get("cards", []) + result.get("selectionContext", {}).get("sourceCards", [])
+    for item in result.get("chain", []) + result.get("events", []):
+        references += item.get("cardReferences", [])
+    for card in references:
         if card.get("identityVisible") is not True:
             for key in ("cardId", "name", "description", "uniqueId", "attack", "defense", "attribute", "race", "level"):
                 card.pop(key, None)

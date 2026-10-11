@@ -15,8 +15,8 @@ sys.path.insert(0, str(ROOT / "JevApp"))
 from jev_app.bridge import BridgeClient
 
 
-def scenario_checks(summary, records, scenario):
-    if summary is None or scenario not in ("discard-two", "twin-target"):
+def scenario_checks(summary, records, scenario, native_text=""):
+    if summary is None or scenario not in ("discard-two", "twin-target", "chain-cost"):
         return {}
     applied = [record for record in records if record["state"] == "applied"]
     def selections(role):
@@ -38,6 +38,42 @@ def scenario_checks(summary, records, scenario):
                 "remaining_count_decreased": [req["observation"]["selectionContext"]["remainingCount"] for req, card in chosen] == [2, 1],
                 "non_default_indices_chosen": len(chosen) == 2 and all(card["index"] > 0 for req, card in chosen),
                 "chosen_cards_reached_grave": len(chosen) == 2 and all(card["uniqueId"] in grave for req, card in chosen)}
+    if scenario == "chain-cost":
+        # This fixed DLL fixture proves resolution, rather than treating accepted input as success.
+        activations = [(record["request"], choice) for record in applied for choice in record["request"]["choices"]
+                       if choice["actionId"] in record["decision"]["actionIds"] and choice["semanticKind"] == "activate"
+                       and any(card.get("cardId") == 4862 for card in choice["cardReferences"])]
+        req, action = activations[0] if activations else ({}, {})
+        source = req.get("observation", {}).get("selectionContext", {}).get("sourceCards", [])
+        spell_uid = source[0].get("uniqueId") if len(source) == 1 and source[0].get("cardId") == 4812 else None
+        trap_uid = action.get("cardReferences", [{}])[0].get("uniqueId")
+        events = [tuple(map(int, line.split()[1:])) for line in native_text.splitlines() if line.startswith("EVENT ")]
+        start = next((i for i, event in enumerate(events) if event[0] == 52 and event[3] >> 16 == spell_uid), None)
+        end = next((i for i in range((start or 0) + 1, len(events))
+                    if start is not None and events[i][0] == 86 and events[i][3] == events[start][3]), None)
+        window = events[start:end + 1] if start is not None and end is not None else []
+        resolution = [event[3] >> 16 for event in window if event[0] == 53]
+        two_links = [record["request"] for record in applied
+                     if [link.get("cardReferences", [{}])[0].get("uniqueId")
+                         for link in record["request"]["observation"].get("chain", []) if link.get("cardReferences")]
+                     == [spell_uid, trap_uid]]
+        later = [record["request"] for record in applied if two_links
+                 and record["request"]["requestSequence"] > two_links[0]["requestSequence"]]
+        grave_cards = {(card["player"], card["uniqueId"]) for card in summary["finalCards"] if card["position"] == 16}
+        return {"response_source_is_opposing_spell": spell_uid is not None and source[0]["player"] != req["actor"],
+                "two_public_chain_sources_in_order": bool(two_links) and len(two_links[0]["observation"]["chain"]) == 2
+                    and two_links[0]["observation"]["chainComplete"] and all(link["sourceLocated"] and link["order"] == i + 1
+                    for i, link in enumerate(two_links[0]["observation"]["chain"])),
+                "counter_trap_resolved_before_spell": bool(window) and resolution == [trap_uid, spell_uid],
+                "spell_disabled_and_destroyed": all(any(event[0] == kind and event[3] == spell_uid for event in window) for kind in (36, 32)),
+                "negated_spell_did_not_draw": bool(window) and not any(event[0] == 68 for event in window),
+                "later_spell_proves_draw_detector_active": end is not None and any(event[0] == 68 for event in events[end + 1:]),
+                "cost_card_reached_grave": bool(discards) and (discards[0][1]["player"], discards[0][1]["uniqueId"]) in grave_cards,
+                "counter_trap_and_spell_reached_grave": spell_uid is not None and bool(activations)
+                    and (req["actor"], trap_uid) in grave_cards and (source[0]["player"], spell_uid) in grave_cards,
+                "resolved_chain_cleared": bool(later) and later[0]["observation"].get("chain") == [],
+                "next_chain_starts_at_one": any(len(row["observation"].get("chain", [])) == 1
+                    and row["observation"]["chain"][0]["order"] == 1 for row in later)}
     targets = selections("target")[:2]
     more = [record["request"]["requestSequence"] for record in applied if record["decision"]["actionIds"] == ["yesno_1"]]
     return {"cost_card_reached_grave": bool(discards) and discards[0][1]["uniqueId"] in grave,
@@ -56,10 +92,12 @@ def main():
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--ui-waits-for-input", action="store_true", help="simulate a view still waiting for its input button")
     parser.add_argument("--loader", help="existing YgoMasterLoader.dll; enables production Hook<T> in the owned host")
-    parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target"), default="basic")
+    parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target", "chain-cost"), default="basic")
     args = parser.parse_args()
     if not 1 <= args.decisions <= 100 or not 5 <= args.timeout <= 600:
         parser.error("decisions must be 1..100 and timeout must be 5..600 seconds")
+    if not Path(args.dll).is_file() or not Path(args.data).is_dir() or (args.loader and not Path(args.loader).is_file()):
+        parser.error("DLL, CardData directory, and optional loader must exist")
     if args.provider == "jev" and not os.environ.get("JEV_API_KEY"):
         parser.error("JEV_API_KEY is missing from the process environment")
     output = Path(args.output).resolve(); output.mkdir(parents=True, exist_ok=True)
@@ -97,7 +135,7 @@ def main():
                 raise RuntimeError("bridge readiness timed out")
             child_env = dict(os.environ, PYTHONIOENCODING="utf-8")
             app_command = [sys.executable, "-u", "-m", "jev_app", "--provider", args.provider]
-            if args.provider == "mock" and args.scenario in ("discard-two", "twin-target"):
+            if args.provider == "mock" and args.scenario in ("discard-two", "twin-target", "chain-cost"):
                 app_command = [sys.executable, "-u", str(ROOT / "tests/ExternalAi/ScenarioApp.py"), "--scenario", args.scenario]
             app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],
                                    cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
@@ -109,7 +147,7 @@ def main():
             (output / "native.log").write_text(text, encoding="utf-8")
             summary = next((json.loads(line[8:]) for line in text.splitlines() if line.startswith("SUMMARY ")), None)
             records = [] if summary is None else [bridge.get(r["decisionId"]) for r in summary["requests"]]
-            checks = scenario_checks(summary, records, args.scenario)
+            checks = scenario_checks(summary, records, args.scenario, text)
             if args.ui_waits_for_input and summary is not None:
                 checks.update(submitted_input_busy_released=summary["submittedUiBusyOverrides"] > 0,
                               no_submitted_input_ui_wait=summary["submittedUiBusyCalls"] == 0)

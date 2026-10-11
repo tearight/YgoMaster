@@ -42,13 +42,14 @@ class DecisionApp:
                 if info:
                     card.update(name=info["name"], description=info["description"])
         reference_groups = [state["selection"].get("sourceCards", [])]
+        reference_groups += [item.get("cardReferences", []) for item in state["duel"].get("chain", []) + state["duel"].get("events", [])]
         reference_groups += [action["cardReferences"] for item in state["appliedDecisions"] for action in item["actions"]]
         for references in reference_groups:
             for card in references:
                 if card.get("identityVisible") is True:
                     info = self.cards.get(card.get("cardId"))
                     if info:
-                        card["name"] = info["name"]
+                        card.update(name=info["name"], description=info["description"])
         question = build_question(request, state, self.cards, self.texts)
         state["requestKind"] = request["requestKind"]
         state["constraints"] = request["constraints"]

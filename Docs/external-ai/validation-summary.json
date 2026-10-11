@@ -358,6 +358,124 @@
         "target_cpu_evaluators_not_entered": true,
         "cpu_counter_actors_known": true
       }
+    },
+    {
+      "scenario": "chain-cost-native-hook-ui",
+      "provider": "mock",
+      "exitCode": 0,
+      "normalInitialization": true,
+      "nativeConsumed": 20,
+      "serverApplied": 20,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "scope": "isolated normal duel; production decoder/controller/worker and Hook<T> with host view/SysAct adapters",
+      "nativeHookCount": 11,
+      "nativeSysActCalls": 1249,
+      "originalViewCalls": 219,
+      "suppressedUiInputs": 20,
+      "submittedUiBusyOverrides": 20,
+      "submittedUiBusyCalls": 0,
+      "cpuEvaluatorCalls": {
+        "main": [
+          43,
+          0,
+          0
+        ],
+        "battle": [
+          0,
+          0,
+          0
+        ],
+        "timing": [
+          0,
+          0,
+          0
+        ],
+        "other": [
+          25,
+          0,
+          0
+        ],
+        "dialog": [
+          130,
+          0,
+          0
+        ]
+      },
+      "loaderSha256": "6185540596e65967d75b7183d5c4657d86363ce6b2d0b3a39693b28d29a0495c",
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "b9d1ea7f5990c71de0aae915d7a5411251b9fb58c1b85f0f421c21431f8b0a47",
+        "YgoMasterClient/Hook.cs": "dc8c9fcea9bf72b3a591719b2524d13446cee436e5a42958b9de31fbee1a475e",
+        "tests/ExternalAi/HookHost.cs": "981288561175554b02a6d3771126b86c413fd0da76fc4c4d1fdb333b893118fb",
+        "tests/ExternalAi/NativeHost.cs": "3a251f9804728134b78d8904a28ccbde6acd56f3e4efa04ca4f711747812cee9",
+        "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+        "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+        "JevApp/jev_app/app.py": "c815b9b8451390b184a4b1f33931abf113c81bdba2b5ab245ccd3caaf646a62a",
+        "JevApp/jev_app/bridge.py": "ed2b7fb50cd1ee57d2381a68cf7f469f4247c923b7f8887b9dfe8e9f0716866d",
+        "JevApp/jev_app/choices.py": "f2231140f238f1bc5c522550a8297a970759a738218cdb4598a6153a04c5300a",
+        "JevApp/jev_app/context.py": "b0ff0f11c4abbe2e7d40cd82df342c158102478f3c369a5bc08847d7feda36a7",
+        "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+        "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+        "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+        "tests/ExternalAi/ScenarioApp.py": "ba4e2b853278c64ea08cfccd855fe473d5df6d5f5e28b2113287032bd26e9604",
+        "tools/external-ai/run-dll-scenarios.py": "46f278afafb48389ba7dbb4a6e0d8db37bbdda89585458b88b6df57f1ff4675c",
+        "YgoMasterClient/DuelDll.cs": "5d0f257553793e0ae0016d501e3bdc252ca4ea7857acfff91f50dbf5187bc318"
+      },
+      "scenarioChecks": {
+        "response_source_is_opposing_spell": true,
+        "two_public_chain_sources_in_order": true,
+        "counter_trap_resolved_before_spell": true,
+        "spell_disabled_and_destroyed": true,
+        "negated_spell_did_not_draw": true,
+        "later_spell_proves_draw_detector_active": true,
+        "cost_card_reached_grave": true,
+        "counter_trap_and_spell_reached_grave": true,
+        "resolved_chain_cleared": true,
+        "next_chain_starts_at_one": true,
+        "submitted_input_busy_released": true,
+        "no_submitted_input_ui_wait": true,
+        "real_native_hooks_installed": true,
+        "native_sysact_intercepted": true,
+        "competing_ui_input_suppressed": true,
+        "view_callbacks_preserved": true,
+        "target_cpu_evaluators_not_entered": true,
+        "cpu_counter_actors_known": true
+      },
+      "cardMovementEvidence": {
+        "opposingSpellUid": 12,
+        "counterTrapUid": 65,
+        "discardCostUid": 43,
+        "allReachedGrave": true,
+        "discardHandIndex": 3
+      },
+      "chainEvidence": {
+        "receivedOrder": [
+          12,
+          65
+        ],
+        "resolutionOrder": [
+          65,
+          12
+        ],
+        "negatedSpellDrawEvents": 0,
+        "laterSpellDrawEventsObserved": true,
+        "sourceCardsMatchedToPublicBoard": true,
+        "resolvedChainCleared": true
+      },
+      "offlinePayloadInspection": {
+        "scope": "offline replay through production app; no Jev network request",
+        "requests": 20,
+        "maxPayloadBytes": 13632,
+        "chainSourceMetadataPresent": true
+      }
     }
   ],
   "textCatalogCounts": {
@@ -407,5 +525,7 @@
       "tests/ExternalAi/ScenarioApp.py": "128d0269e01bd02c1619c6177986da1c25a4d854ca95c1f83514e0983d394f92",
       "tools/external-ai/run-dll-scenarios.py": "186f6f19abc83297af6f679c6c1c1d96de0cec237850682b396f7d5d1f968305"
     }
-  }
+  },
+  "publicChainContextVerified": true,
+  "chainResponseWithDiscardCostVerified": true
 }

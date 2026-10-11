@@ -184,6 +184,9 @@ class BridgeIntegration(unittest.TestCase):
         hidden = {"player": 0, "identityVisible": False, "cardId": 123, "name": "secret"}
         public = {"player": 1, "identityVisible": True, "cardId": 123}
         req["observation"].update(cards=[hidden, public], selectionContext={"role": "target", "sourceCards": [hidden, public]})
+        req["observation"].update(chain=[{"order": 1, "status": "pending", "cardReferences": [dict(hidden)]},
+                                          {"order": 2, "status": "pending", "cardReferences": [dict(public)]}],
+                                   events=[{"event": "ChainSet", "cardReferences": [dict(hidden), dict(public)]}])
         self.bridge.call("v1/requests", req)
         observed = []
         class Provider:
@@ -196,6 +199,10 @@ class BridgeIntegration(unittest.TestCase):
         self.assertNotIn("name", observed[0]["selection"]["sourceCards"][0])
         self.assertEqual(observed[0]["duel"]["cards"][1]["description"], "card rules")
         self.assertEqual(observed[0]["selection"]["sourceCards"][1]["name"], "known")
+        self.assertNotIn("cardId", observed[0]["duel"]["chain"][0]["cardReferences"][0])
+        self.assertNotIn("name", observed[0]["duel"]["events"][0]["cardReferences"][0])
+        self.assertEqual(observed[0]["duel"]["chain"][1]["cardReferences"][0]["description"], "card rules")
+        self.assertEqual(observed[0]["duel"]["events"][0]["cardReferences"][1]["name"], "known")
 
 
 class ChoiceChecks(unittest.TestCase):

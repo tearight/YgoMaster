@@ -13,6 +13,8 @@
 
 요청 필드: `protocolVersion=1`, `duelId`, `duelGeneration`, `decisionId`, `requestSequence`, `actor`, `requestKind`, `rawRequest`, `observation`, `choices`, `constraints`, UTC `deadline`. 새 요청에는 단조 증가하는 sequence가 필요합니다. 새 세대는 이전의 미완료 요청을 취소합니다. 종료된 세대의 지연 결과는 거절합니다.
 
+`observation.chain`은 `order`, `status`(`pending/resolving/resolved`), `sourceLocated`, 공개된 `cardReferences`를 갖습니다. `order`는 ChainSet을 받은 순서이며 native 토큰을 체인 번호로 추측하지 않습니다. 검증된 DLL의 ChainSet/Run/End 패킷은 로컬에서만 대조하고, UID와 위치가 현재 공개 카드 한 장에 일치할 때만 출처를 노출합니다. `chainComplete=false`는 놓친 이벤트나 범위 초과로 체인 추적이 불완전하다는 뜻입니다. 각 출처의 확인 여부는 `sourceLocated`로 따로 표현합니다. 해결이 끝나면 현재 체인을 비우며 최근 공개 이벤트 이력은 유지합니다. 대응 요청은 `selectionContext.role=chain_response`와 마지막 미해결 카드의 `sourceCards`를 제공합니다. 버리기 요청의 causal parent가 확인되지 않으면 null로 두고 적용 이력과 현재 체인을 별도 맥락으로 제공합니다.
+
 후보는 `actionId`, `semanticKind`, `text`, `cardReferences`, `arguments`를 갖습니다. 후보를 실제 setter에 매핑하는 함수는 클라이언트에만 남습니다. 앱·Jev는 메모리 주소나 임의 setter를 반환할 수 없습니다.
 
 제약은 `min`, `max`, `ordered`, `allowEmpty`, `legality`입니다. `single`은 정확히 한 후보, `independent`는 확인된 독립 선택, `allowed_selections`는 명시한 `allowedSelections`만 허용합니다. `unknown`에서는 결과를 받지 않습니다. 생산 DLL decoder는 아직 다중 선택의 독립성을 입증하지 않아 이를 `unknown`으로 발행합니다.

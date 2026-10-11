@@ -23,6 +23,8 @@ namespace YgoMasterClient
         static long externalAiGeneration, externalAiSequence;
         static bool externalAiEnabled, externalAiCpuChanged;
         static Queue<object> externalAiEvents = new Queue<object>();
+        static List<Tuple<uint, Dictionary<string, object>>> externalAiChain = new List<Tuple<uint, Dictionary<string, object>>>();
+        static bool externalAiChainComplete = true;
 
         static void ExternalAiInit(IntPtr module, string dllPath = null)
         {
@@ -44,6 +46,7 @@ namespace YgoMasterClient
             externalAiInput = null; externalAiLastApplied = null; externalAiSelected = null;
             externalAiActiveChoice = null; externalAiActiveDecision = null;
             externalAiEvents.Clear(); externalAiCpuChanged = false;
+            externalAiChain.Clear(); externalAiChainComplete = true;
             externalAiEnabled = externalAiWorker != null && mode == GameMode.SoloSingle && !IsPvpDuel && !IsPvpSpectator;
         }
         static int ExternalAiPlayerType(int player, int type)
@@ -86,8 +89,11 @@ namespace YgoMasterClient
             {
                 if (externalAiInput != null && externalAiInput.Submitted && !externalAiProfile.Pending(externalAiInput.EffectId))
                     ExternalAiAck("applied", "engine_request_consumed");
-                // Parameters can contain private card information; only the public event kind is retained.
-                externalAiEvents.Enqueue(new Dictionary<string, object> { {"event", ((DuelViewType)id).ToString()} });
+                // Keep raw parameters private. Chain sources are matched to visible cards.
+                Dictionary<string, object> observedEvent = new Dictionary<string, object> { {"event", ((DuelViewType)id).ToString()} };
+                try { ExternalAiObserveChain((DuelViewType)id, p2, unchecked((uint)p3), observedEvent); }
+                catch { externalAiChain.Clear(); externalAiChainComplete = false; }
+                externalAiEvents.Enqueue(observedEvent);
                 while (externalAiEvents.Count > 64) externalAiEvents.Dequeue();
                 return;
             }
@@ -161,6 +167,43 @@ namespace YgoMasterClient
             if (externalAiCpuChanged) hookDLL_DuelSetPlayerType.Original(RivalID, (int)DuelPlayerType.CPU);
             externalAiCpuChanged = false; externalAiEnabled = false;
         }
+        static void ExternalAiObserveChain(DuelViewType kind, int position, uint packet, Dictionary<string, object> observedEvent)
+        {
+            if (kind != DuelViewType.ChainSet && kind != DuelViewType.ChainRun && kind != DuelViewType.ChainEnd) return;
+            // The 10dd0c producer packs UID in the high word and a native token in
+            // the low word. Keep this key local; match the source against current cards.
+            Tuple<uint, Dictionary<string, object>> entry = externalAiChain.Find(value => value.Item1 == packet);
+            if (kind == DuelViewType.ChainSet && entry == null)
+            {
+                if (externalAiChain.Count >= 64) { externalAiChain.Clear(); externalAiChainComplete = false; return; }
+                List<object> references = new List<object>();
+                int uid = (int)(packet >> 16);
+                if (uid > 0 && position >= 0 && position < 18 && position != 15)
+                    for (int player = 0; player < 2; player++)
+                    {
+                        if (position == 14 && player != RivalID) continue;
+                        int count = hookDLL_DuelGetCardNum.Original(player, position);
+                        if (count < 0 || count > 128) throw new InvalidOperationException("invalid_chain_card_count");
+                        for (int index = 0; index < count; index++)
+                            if (hookDLL_DuelGetCardUniqueID.Original(player, position, index) == uid)
+                            {
+                                Dictionary<string, object> card = ExternalAiCard(player, position, index, RivalID);
+                                if (Protocol.Flag(card, "identityVisible")) references.Add(card);
+                            }
+                    }
+                if (references.Count != 1) references.Clear();
+                entry = Tuple.Create(packet, new Dictionary<string, object> {
+                    {"order", externalAiChain.Count + 1}, {"status", "pending"},
+                    {"cardReferences", references}, {"sourceLocated", references.Count == 1}
+                });
+                externalAiChain.Add(entry);
+            }
+            if (entry == null) { externalAiChainComplete = false; return; }
+            entry.Item2["status"] = kind == DuelViewType.ChainRun ? "resolving" : kind == DuelViewType.ChainEnd ? "resolved" : "pending";
+            observedEvent["chainOrder"] = entry.Item2["order"];
+            observedEvent["cardReferences"] = Protocol.List(entry.Item2, "cardReferences");
+            if (externalAiChain.All(value => Protocol.Text(value.Item2, "status") == "resolved")) externalAiChain.Clear();
+        }
         static Dictionary<string, object> ExternalAiCard(int player, int pos, int index, int observer)
         {
             string zone = pos <= 12 ? "필드" : new[] { "패", "엑스트라 덱", "덱", "묘지", "제외 구역" }[pos - 13];
@@ -195,10 +238,17 @@ namespace YgoMasterClient
             };
             string reason = null;
             Dictionary<string, object> selectionContext = new Dictionary<string, object> { {"role", "unknown"}, {"parentDecisionId", null} };
+            if ((id == 4 && (p1 == (int)DuelMenuActType.CheckChain || (p1 == (int)DuelMenuActType.CheckTiming && externalAiChain.Count > 0))) ||
+                (id == 55 && p1 == (int)DuelDialogType.Effect && externalAiChain.Count > 0))
+            {
+                selectionContext["role"] = "chain_response";
+                Tuple<uint, Dictionary<string, object>> source = externalAiChain.LastOrDefault(value => Protocol.Text(value.Item2, "status") != "resolved");
+                if (source != null) selectionContext["sourceCards"] = Protocol.List(source.Item2, "cardReferences");
+            }
             if (id == 4)
             {
                 if (p1 == (int)DuelMenuActType.MainPhase || p1 == (int)DuelMenuActType.BattlePhase)
-                { externalAiActiveChoice = null; externalAiActiveDecision = null; }
+                { externalAiActiveChoice = null; externalAiActiveDecision = null; externalAiChain.Clear(); externalAiChainComplete = true; }
                 if (p1 == (int)DuelMenuActType.DrawPhase)
                 {
                     uint mask = hookDLL_DuelComGetCommandMask.Original(actor, 15, 0);
@@ -427,7 +477,8 @@ namespace YgoMasterClient
                 {"observation", new Dictionary<string, object> { {"turn", hookDLL_DuelGetTurnNum.Original()}, {"phase", hookDLL_DuelGetCurrentPhase.Original()},
                     {"turnPlayer", hookDLL_DuelWhichTurnNow.Original()},
                     {"lifePoints", new int[] {hookDLL_DuelGetLP.Original(0),hookDLL_DuelGetLP.Original(1)}}, {"cards", observedCards},
-                    {"events", externalAiEvents.ToArray()}, {"selectionContext", selectionContext} }},
+                    {"events", externalAiEvents.ToArray()}, {"selectionContext", selectionContext},
+                    {"chain", externalAiChain.Select(value => (object)Protocol.Copy(value.Item2)).ToArray()}, {"chainComplete", externalAiChainComplete} }},
                 {"choices", choices}, {"constraints", limits}, {"deadline", DateTime.UtcNow.AddSeconds(externalAiConfig.DeadlineSeconds).ToString("o")}
             };
             externalAiInput = new InputSession(request, id, marker, selected =>

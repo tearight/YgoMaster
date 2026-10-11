@@ -82,8 +82,12 @@ def render_choice(choice, request, cards, texts):
             raise ValueError("invalid_discard_count")
         return f"{card}: 버린다 (앞으로 버려야 할 {remaining}장 중 한 장)"
     if kind == "decline":
+        if request["observation"].get("selectionContext", {}).get("role") == "chain_response":
+            return "현재 체인에 추가 효과를 발동하지 않고 진행한다"
         return "이 요청에서 효과를 발동하지 않고 진행한다"
     if kind == "check_effects" and args.get("effectPromptType") in (1, 2):
+        if request["observation"].get("selectionContext", {}).get("role") == "chain_response":
+            return "현재 체인에 대응할 카드나 효과를 선택한다"
         return "현재 타이밍에 발동할 카드나 효과를 선택한다"
     if kind == "draw_card":
         return "드로우 페이즈의 카드를 뽑는다"

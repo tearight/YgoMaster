@@ -207,9 +207,10 @@ namespace YgoMasterClient
             Bind<SetUInt>("DLL_DuelSetRandomSeed")(1234);
             SetDeck deck = Bind<SetDeck>("DLL_DuelSysSetDeck2");
             string scenario = args[5];
-            int cardId = scenario == "spell-target" ? 4909 : scenario == "discard-two" ? 4812 : scenario == "twin-target" ? 12175 : 4084;
+            int cardId = scenario == "spell-target" ? 4909 : scenario == "discard-two" ? 4812 : scenario == "twin-target" ? 12175 : scenario == "chain-cost" ? 4862 : 4084;
             int[] main = Enumerable.Repeat(cardId, 40).ToArray();
-            deck(0, main, main.Length, new int[0], 0, new int[0], 0); deck(1, main, main.Length, new int[0], 0, new int[0], 0);
+            int[] opponentMain = scenario == "chain-cost" ? Enumerable.Repeat(4812, 40).ToArray() : main;
+            deck(0, opponentMain, opponentMain.Length, new int[0], 0, new int[0], 0); deck(1, main, main.Length, new int[0], 0, new int[0], 0);
             if (nativeHooks.Count > 0)
             {
                 Bind<Set2>("DLL_DuelSetPlayerType")(0, 1);
@@ -234,9 +235,9 @@ namespace YgoMasterClient
                 Thread.Sleep(5);
             }
             List<object> finalCards = new List<object>();
-            for (int pos = 0; pos < 18; pos++) if (pos != 15)
-                for (int index = 0; index < hookDLL_DuelGetCardNum.Original(RivalID, pos); index++)
-                    finalCards.Add(ExternalAiCard(RivalID, pos, index, RivalID));
+            for (int player = 0; player < 2; player++) for (int pos = 0; pos < 18; pos++) if (pos != 15)
+                for (int index = 0; index < hookDLL_DuelGetCardNum.Original(player, pos); index++)
+                    finalCards.Add(ExternalAiCard(player, pos, index, RivalID));
             Console.WriteLine("SUMMARY " + Protocol.Serialize(new Dictionary<string, object> {
                 {"normalInitialization", true}, {"profileSha256", EngineProfile.Sha256}, {"requests", requests},
                 {"consumedIds", consumed.ToArray()}, {"targetPlayerType", externalAiProfile.Read32(0x2c5cbc + 12)},

@@ -33,6 +33,20 @@ class ScenarioProvider:
                 pairs = [key for key, text in criteria.items() if key.startswith("selection_") and " → " in text]
                 if pairs:
                     selected = pairs[0]
+        elif self.scenario == "chain-cost":
+            sets = [key for key in keys if key.startswith("command_") and key.endswith("_7")]
+            set_cards = [card for card in state["duel"]["cards"] if card["player"] == state["actor"]
+                         and 7 <= card.get("position", -1) <= 11 and card.get("faceUp") is False]
+            opposing_spell = any(card["player"] != state["actor"] and card.get("cardId") == 4812
+                                  and card.get("faceUp") is True for card in state["duel"]["cards"])
+            if sets and not set_cards:
+                selected = sets[0]
+            elif "effect_yes" in keys and opposing_spell and set_cards:
+                selected = "effect_yes"
+            elif "yesno_1" in keys:
+                selected = "yesno_1"
+            elif "phase_5" in keys:
+                selected = "phase_5"
         print("QUESTION " + json.dumps({"selection": state["selection"], "criteria": criteria, "chosen": selected}, ensure_ascii=False), flush=True)
         return ProviderChoice(selected, "mock", "scenario-fixture-test-only")
 
@@ -41,7 +55,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bridge-config", required=True)
     parser.add_argument("--card-data", required=True)
-    parser.add_argument("--scenario", choices=("discard-two", "twin-target"), required=True)
+    parser.add_argument("--scenario", choices=("discard-two", "twin-target", "chain-cost"), required=True)
     args = parser.parse_args()
     DecisionApp(BridgeClient(args.bridge_config), ScenarioProvider(args.scenario), CardCatalog.from_game(args.card_data),
                 TextCatalog.from_game(args.card_data)).run()
