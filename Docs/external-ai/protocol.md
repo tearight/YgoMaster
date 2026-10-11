@@ -7,6 +7,7 @@
 | POST `/v1/requests` | DLL 클라이언트가 요청 발행 |
 | GET `/v1/pending` | 앱이 판단할 요청 목록 조회 |
 | GET `/v1/requests/{decisionId}` | 승인·소비·종료 상태 조회 |
+| GET `/v1/context/{decisionId}` | 앱 재시작 시 해당 요청 이전의 적용 이력 복구 |
 | POST `/v1/decisions` | 앱이 선택한 후보 ID 제출 |
 | POST `/v1/acks` | 클라이언트 소비 확인 또는 앱의 실패 반환 |
 | POST `/v1/duels/end` | 듀얼 세대 종료 |
@@ -22,6 +23,8 @@
 응답 필드: 동일한 `protocolVersion/duelId/duelGeneration/decisionId/actor`, `actionIds`, `provider`, `model`, 선택적 `confidence`. 모델이 보낸 ID·수량·중복·순서를 서버와 엔진 스레드에서 다시 검사합니다. 같은 ID·같은 내용 재전송은 멱등적이며 다른 내용 재사용은 409입니다.
 
 상태는 `pending → accepted → applied`입니다. 취소·거절·기한 초과는 `cancelled/rejected/expired`입니다. `accepted`는 서버가 응답을 검사했다는 뜻입니다. `applied`는 클라이언트가 setter를 실행하고 엔진 요청이 소비됐음을 확인한 뒤에만 반환합니다. 앱의 `rejected`는 소비 확인이 아닙니다.
+
+context 응답은 `protocolVersion/duelId/duelGeneration/actor`, `ended`, `historyLimited=true`, `records`를 갖습니다. 같은 듀얼·세대·actor에서 현재 requestSequence보다 앞선 `applied` 기록만 최신 64개와 1 MiB 안에서 시간순으로 반환합니다. 기록에는 선택한 후보·actionIds·턴·페이즈만 남기고 당시 전체 관측과 다른 후보는 제외합니다. 앱은 새 듀얼 맥락을 만들 때 이 경로를 조회하고, 순서 선택의 이력도 제출한 actionIds 순서로 보존합니다. Jev 상태의 `appliedHistoryLimited=true`는 전체 듀얼 이력이 아니라 보유 중인 최근 이력임을 뜻합니다. 서버의 종료 기록 보유 한도가 함께 적용되며, 서버 자체를 재시작하면 메모리 이력은 사라집니다. 이번 서버와 앱은 함께 갱신해야 합니다.
 
 엔진 호출은 SysAct 스레드에서만 일어납니다. 통신 worker는 복사한 JSON을 보내고 결과를 큐에 넣습니다. queued 결과는 현재 session·actor·marker·deadline을 검사한 뒤 한 번만 적용합니다. 목록 콜백은 56이지만 busy 조회는 55이므로 두 번호를 같은 대기 session에 연결합니다. 단일 목록은 index와 결과 수 1, 다중 목록은 미선택 0·선택 순위 1..n과 결과 수를 사용합니다. 적용 전 정렬 목록의 장수·UID를 다시 확인하고 모든 사전 순위를 지운 뒤 새 순위를 씁니다. 3장 덱 정렬 계약은 정상 초기화한 실제 DLL에서 덱 순서 변경과 다음 드로우까지 검증했습니다.
 

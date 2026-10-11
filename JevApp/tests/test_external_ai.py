@@ -143,6 +143,7 @@ class BridgeIntegration(unittest.TestCase):
         app.step()
         self.assertEqual(app.states["ordered"], "done")
         self.assertEqual(len(app.context.update(req)["appliedDecisions"]), 1)
+        self.assertEqual([action["actionId"] for action in app.context.update(req)["appliedDecisions"][0]["actions"]], ["next", "end"])
         self.assertNotIn(self.token, "\n".join(traces))
 
     def test_separate_python_app_process(self):
@@ -166,6 +167,59 @@ class BridgeIntegration(unittest.TestCase):
             child.terminate()
             output, errors = child.communicate(timeout=5)
             self.assertNotIn(self.token.encode(), output + errors)
+
+    def test_restarted_app_recovers_scoped_applied_history(self):
+        def publish_and_apply(req, applied=True):
+            self.bridge.call("v1/requests", req)
+            self.bridge.publish_decision(decision(req))
+            if applied:
+                self.bridge.call("v1/acks", dict({key: req[key] for key in IDENTITY}, state="applied", reason="test_engine_consumed"))
+
+        duel = "restart-context-duel"
+        publish_and_apply(request("restart-old-generation", duel))
+        prior = request("restart-applied", duel, generation=2)
+        prior["choices"][0]["cardReferences"] = [{"player": 0, "identityVisible": False, "cardId": 123, "uniqueId": 99, "name": "secret"}]
+        publish_and_apply(prior)
+        publish_and_apply(request("restart-accepted-only", duel, generation=2, sequence=2), applied=False)
+        opposing = request("restart-other-actor", duel, generation=2, sequence=3)
+        opposing["actor"] = 0
+        publish_and_apply(opposing)
+        current = request("restart-current", duel, generation=2, sequence=4)
+        self.bridge.call("v1/requests", current)
+        publish_and_apply(request("restart-future-sequence", duel, generation=2, sequence=5))
+        observed = []
+        class Provider:
+            def choose(self, state, criteria, timeout):
+                observed.append(copy.deepcopy(state))
+                return MockProvider().choose(state, criteria, timeout)
+        # A fresh instance has no memory from the app that submitted the earlier decisions.
+        restarted = DecisionApp(self.bridge, Provider(), trace=lambda _: None)
+        restarted.process(current)
+        history = observed[0]["appliedDecisions"]
+        self.assertEqual([item["decisionId"] for item in history], ["restart-applied"])
+        self.assertNotIn("cardId", history[0]["actions"][0]["cardReferences"][0])
+        self.assertNotIn("uniqueId", history[0]["actions"][0]["cardReferences"][0])
+        self.assertNotIn("name", history[0]["actions"][0]["cardReferences"][0])
+        self.assertTrue(observed[0]["appliedHistoryLimited"])
+        self.bridge.call("v1/duels/end", {key: current[key] for key in IDENTITY})
+        restarted.step()
+        self.assertNotIn((duel, 2), restarted.context.duels)
+
+    def test_restored_context_respects_response_byte_limit(self):
+        duel = "large-history-duel"
+        for sequence in range(1, 7):
+            req = request(f"large-history-{sequence}", duel, sequence=sequence)
+            req["choices"][0]["arguments"]["padding"] = "x" * 260000
+            self.bridge.call("v1/requests", req)
+            self.bridge.publish_decision(decision(req))
+            self.bridge.call("v1/acks", dict({key: req[key] for key in IDENTITY}, state="applied", reason="test_engine_consumed"))
+        current = request("large-history-current", duel, sequence=7)
+        self.bridge.call("v1/requests", current)
+        snapshot = self.bridge.context(current["decisionId"])
+        self.assertEqual([row["request"]["requestSequence"] for row in snapshot["records"]], [3, 4, 5, 6])
+        self.assertLessEqual(len(json.dumps(snapshot, ensure_ascii=False).encode()), 1048576)
+        self.assertTrue(snapshot["historyLimited"])
+        self.bridge.call("v1/duels/end", {key: current[key] for key in IDENTITY})
 
     def test_app_reports_unsupported_request_to_bridge(self):
         req = request("unrenderable")
@@ -282,6 +336,9 @@ class ChoiceChecks(unittest.TestCase):
         class Bridge:
             calls = 0
             submitted = []
+            def context(self, _):
+                return {"protocolVersion": 1, "duelId": req["duelId"], "duelGeneration": req["duelGeneration"],
+                        "actor": req["actor"], "ended": False, "historyLimited": True, "records": []}
             def get(self, _):
                 self.calls += 1
                 return {"request": req, "state": "pending" if self.calls == 1 else "expired"}

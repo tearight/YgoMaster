@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using YgoMaster.ExternalAi;
 
 namespace YgoMaster.ExternalAi
@@ -87,6 +88,47 @@ namespace YgoMaster.ExternalAi
         public Dictionary<string, object> Get(string decisionId, DateTime now)
         {
             lock (gate) { Prune(now); return Find(decisionId).Snapshot(); }
+        }
+        public Dictionary<string, object> Context(string decisionId, DateTime now)
+        {
+            lock (gate)
+            {
+                Prune(now);
+                Dictionary<string, object> current = Find(decisionId).Request;
+                string duelId = Protocol.Text(current, "duelId");
+                long generation = Protocol.Number(current, "duelGeneration"), actor = Protocol.Number(current, "actor");
+                DuelState duel;
+                bool ended = !duels.TryGetValue(duelId, out duel) || duel.Ended || duel.Generation != generation;
+                List<object> history = new List<object>();
+                Dictionary<string, object> result = new Dictionary<string, object> {
+                    {"protocolVersion", Protocol.Version}, {"duelId", duelId}, {"duelGeneration", generation},
+                    {"actor", actor}, {"ended", ended}, {"historyLimited", true}, {"records", history}
+                };
+                int bytes = Encoding.UTF8.GetByteCount(Protocol.Serialize(result));
+                foreach (Record record in records.Values.Where(value => value.State == "applied" &&
+                    Protocol.Text(value.Request, "duelId") == duelId && Protocol.Number(value.Request, "duelGeneration") == generation &&
+                    Protocol.Number(value.Request, "actor") == actor && Protocol.Number(value.Request, "requestSequence") < Protocol.Number(current, "requestSequence"))
+                    .OrderByDescending(value => Protocol.Number(value.Request, "requestSequence")).Take(64))
+                {
+                    Dictionary<string, object> request = record.Request;
+                    var selected = Protocol.List(record.Response, "actionIds").Cast<string>().ToList();
+                    Dictionary<string, object> observation = Protocol.Object(request["observation"]);
+                    Dictionary<string, object> compactObservation = observation.Where(pair => pair.Key == "turn" || pair.Key == "phase").ToDictionary(pair => pair.Key, pair => pair.Value);
+                    Dictionary<string, object> compactRequest = request.Where(pair => pair.Key == "duelId" || pair.Key == "duelGeneration" ||
+                        pair.Key == "decisionId" || pair.Key == "actor" || pair.Key == "requestSequence" || pair.Key == "requestKind").ToDictionary(pair => pair.Key, pair => pair.Value);
+                    compactRequest["observation"] = compactObservation;
+                    compactRequest["choices"] = Protocol.List(request, "choices").Cast<object>()
+                        .Where(value => selected.Contains(Protocol.Text(Protocol.Object(value), "actionId"))).ToList();
+                    Dictionary<string, object> compactRecord = new Dictionary<string, object> {
+                        {"state", "applied"}, {"request", compactRequest}, {"decision", new Dictionary<string, object> {{"actionIds", selected}}}
+                    };
+                    int entryBytes = Encoding.UTF8.GetByteCount(Protocol.Serialize(compactRecord)) + 1;
+                    if (bytes + entryBytes > BridgeConfig.MaxBodyBytes) break;
+                    history.Add(compactRecord); bytes += entryBytes;
+                }
+                history.Reverse();
+                return Protocol.Copy(result);
+            }
         }
         public Dictionary<string, object> Submit(Dictionary<string, object> input, DateTime now)
         {

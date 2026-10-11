@@ -5,7 +5,7 @@
 | 검사 | 결과 | 범위 |
 |---|---|---|
 | client/server Framework C# 빌드 | 성공 | 기존 MSBuild/csc 사용. .NET 4.8 참조 팩 부재로 설치된 GAC를 사용하는 경고가 남음 |
-| bridge/app 자동 검사 | 12개 통과 | 실제 C# 서버와 Python 앱 프로세스, 인증·세대·기한·멱등성·합법 조합·실패 반환·비공개 정보·재시도·혼합 안내/질문 구분·문자열 offset 경계 |
+| bridge/app 자동 검사 | 14개 통과 | 실제 C# 서버와 Python 앱 프로세스, 인증·세대·기한·멱등성·합법 조합·실패 반환·비공개 정보·재시도·혼합 안내/질문 구분·문자열 offset 경계·복구 이력의 범위와 크기 |
 | InputSession 검사 | 통과 | 엔진 스레드 소유, 한 번 적용, 순서 매핑, 지연 session 거절, 명시적 소비 확인 |
 | 실제 추출 카드 데이터 | 14,323개 읽음 | 카드 ID→이름·설명. 원본 자산은 읽기만 함 |
 | 정상 초기화 DLL — basic | 8개 consumed / 8개 applied | 효과 확인, 일반 소환, 위치 선택, 필드 반영, 페이즈 이동 |
@@ -17,6 +17,7 @@
 | 실제 native Hook<T> — twin-target | 20개 consumed / 20개 applied | 동일한 훅·화면 대기 조건에서 코스트/두 대상의 묘지 이동 대조도 통과 |
 | 실제 native Hook<T> — chain-cost | 20개 consumed / 20개 applied | 상대 Graceful Charity→Magic Jammer→패 한 장 코스트. 체인 출처·순서·역순 해결, 마법 무효화/파괴, 세 카드의 묘지 이동을 대조 |
 | 실제 native Hook<T> — deck-order | 24개 consumed / 24개 applied | Spellbook Organization의 순서 6개 생성. 목록 3→2→1로 덱 위 3장을 정렬하고 첫 UID가 다음 턴 드로우로 패에 들어온 것을 대조 |
+| 실제 native Hook<T> — 앱 재시작 | 8개 consumed / 8개 applied | 세 번 적용한 뒤 별도 모의 앱 프로세스를 종료·재실행. 첫 후속 판단에 앞선 적용 ID 3개가 모두 포함됨을 대조 |
 | 게임 안내 문자열 | DLG 785개·WORD 257개 읽음 | 현재 추출 자산의 ID별 offset·범위·UTF-8 검사. 실제 요청에서 DLG 33 질문과 581 안내/카드명 치환을 검증. 모든 ID의 듀얼 사용이나 치환 타입을 검증한 것은 아님 |
 | 실제 Jev endpoint 인증 | 미검증 | API 키 준비가 필요함 |
 | 게임 화면·주입 훅·UI 대기 경합 | 미검증 | 독립 DLL host는 이 범위를 재현하지 않음 |
@@ -50,6 +51,8 @@ deck-order의 수정 전에는 실제 목록 요청 `[56, 1, 9, 0]`, 3장/3장 �
 
 ## 재현
 
+앱 재시작 검증에서는 서버와 native host를 유지하고 모의 앱만 종료·재실행했습니다. 새 앱의 첫 판단에 앞선 적용 ID 3개가 동일한 순서로 복구됐습니다. 총 8건 적용, 상충 입력 8개 차단, 표시 콜백 48개 전달을 확인했습니다. 별도 계약 검사에서는 이전 세대·다른 actor·미적용·후속 sequence를 제외하고, 큰 이력이 1 MiB를 넘지 않도록 최근 일부만 반환하는 것을 대조했습니다. 순서 선택의 적용 이력은 후보 목록 순서가 아니라 제출한 actionIds 순서로 기록합니다. 처리 중인 요청의 duel_end/new_generation 취소를 받으면 그 맥락을 비웁니다. 서버 재시작이나 모든 과거 이력의 영속 저장을 검증한 것은 아닙니다.
+
 fork 루트에서 먼저 빌드하고 계약 검사를 실행합니다.
 
 ```powershell
@@ -67,6 +70,7 @@ py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-basic' --scenario basic --decisions 16 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-chain' --scenario chain-cost --decisions 20 --ui-waits-for-input
 py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-ui-deck-order' --scenario deck-order --decisions 24 --ui-waits-for-input
+py -3 tools\external-ai\run-dll-scenarios.py --dll '<duel.dll 절대 경로>' --data '<CardData 절대 경로>' --loader '<기존 YgoMasterLoader.dll 절대 경로>' --output '.local\native-hook-app-restart' --scenario basic --decisions 8 --ui-waits-for-input --restart-app-after 3
 ```
 
 각 output의 `result.json`은 provider, source hash, 엔진 소비 ID, 서버 기록을 포함하고 `native.log/app.log/server.log`를 따로 남깁니다. 로컬 설정과 bridge token은 Git에서 제외됩니다.

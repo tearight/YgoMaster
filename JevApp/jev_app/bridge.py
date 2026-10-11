@@ -42,5 +42,8 @@ class BridgeClient:
     def get(self, decision_id):
         return self.call("v1/requests/" + quote(decision_id, safe=""))
 
+    def context(self, decision_id):
+        return self.call("v1/context/" + quote(decision_id, safe=""))
+
     def publish_decision(self, result):
         return self.call("v1/decisions", result)

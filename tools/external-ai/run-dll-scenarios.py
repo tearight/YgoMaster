@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import time
+from urllib.error import HTTPError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "JevApp"))
@@ -125,10 +126,13 @@ def main():
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--ui-waits-for-input", action="store_true", help="simulate a view still waiting for its input button")
     parser.add_argument("--loader", help="existing YgoMasterLoader.dll; enables production Hook<T> in the owned host")
+    parser.add_argument("--restart-app-after", type=int, default=0, help="test-only mock app restart after this many applied inputs")
     parser.add_argument("--scenario", choices=("basic", "spell-target", "discard-two", "twin-target", "chain-cost", "deck-order"), default="basic")
     args = parser.parse_args()
     if not 1 <= args.decisions <= 100 or not 5 <= args.timeout <= 600:
         parser.error("decisions must be 1..100 and timeout must be 5..600 seconds")
+    if args.restart_app_after and (args.provider != "mock" or args.scenario != "basic" or not 1 <= args.restart_app_after < args.decisions):
+        parser.error("app restart requires mock/basic and a threshold below the decision count")
     if not Path(args.dll).is_file() or not Path(args.data).is_dir() or (args.loader and not Path(args.loader).is_file()):
         parser.error("DLL, CardData directory, and optional loader must exist")
     if args.provider == "jev" and not os.environ.get("JEV_API_KEY"):
@@ -144,6 +148,9 @@ def main():
     for path in [*sorted((ROOT / "JevApp/jev_app").glob("*.py")), ROOT / "tests/ExternalAi/ScenarioApp.py", Path(__file__)]:
         source_hashes[path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     source_hashes["YgoMasterClient/DuelDll.cs"] = hashlib.sha256((ROOT / "YgoMasterClient/DuelDll.cs").read_bytes()).hexdigest()
+    for source in ("YgoMasterServer/ExternalAi/DecisionStore.cs", "YgoMasterServer/ExternalAi/DecisionBridge.cs", "YgoMasterServer/Program.cs"):
+        source_hashes[source] = hashlib.sha256((ROOT / source).read_bytes()).hexdigest()
+    server_hash = hashlib.sha256((ROOT / "YgoMaster/YgoMaster.exe").read_bytes()).hexdigest()
     subprocess.run([str(compiler), "/nologo", "/unsafe", "/platform:x64", "/r:System.Web.Extensions.dll", f"/out:{host}",
                     *(str(ROOT / source) for source in sources)], cwd=ROOT, check=True)
     with socket.socket() as sock:
@@ -168,19 +175,63 @@ def main():
                 raise RuntimeError("bridge readiness timed out")
             child_env = dict(os.environ, PYTHONIOENCODING="utf-8")
             app_command = [sys.executable, "-u", "-m", "jev_app", "--provider", args.provider]
-            if args.provider == "mock" and args.scenario in ("discard-two", "twin-target", "chain-cost", "deck-order"):
+            if args.provider == "mock" and (args.restart_app_after or args.scenario in ("discard-two", "twin-target", "chain-cost", "deck-order")):
                 app_command = [sys.executable, "-u", str(ROOT / "tests/ExternalAi/ScenarioApp.py"), "--scenario", args.scenario]
             app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],
                                    cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
             processes.append(app)
-            completed = subprocess.run([str(host), args.dll, args.data, str(config), str(args.decisions), str(args.timeout), args.scenario,
-                                        "ui-waits-for-input" if args.ui_waits_for_input else "no-ui", str(Path(args.loader).resolve()) if args.loader else ""],
-                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=args.timeout + 15)
-            text = completed.stdout.decode("utf-8", errors="replace")
-            (output / "native.log").write_text(text, encoding="utf-8")
+            restart_ids = []
+            native_path = output / "native.log"
+            with native_path.open("wb") as native_log:
+                native_process = subprocess.Popen([str(host), args.dll, args.data, str(config), str(args.decisions), str(args.timeout), args.scenario,
+                                                  "ui-waits-for-input" if args.ui_waits_for_input else "no-ui", str(Path(args.loader).resolve()) if args.loader else ""],
+                                                 stdout=native_log, stderr=subprocess.STDOUT)
+                processes.append(native_process)
+                limit = time.monotonic() + args.timeout + 15
+                while native_process.poll() is None:
+                    if time.monotonic() >= limit:
+                        raise TimeoutError("native host timed out")
+                    if args.restart_app_after and not restart_ids:
+                        observed_requests = []
+                        for line in native_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                            if line.startswith("REQUEST "):
+                                try:
+                                    observed_requests.append(json.loads(line[8:]))
+                                except json.JSONDecodeError:
+                                    pass  # The native writer may still be completing its last line.
+                        applied_ids = []
+                        for req in observed_requests:
+                            try:
+                                if bridge.get(req["decisionId"])["state"] == "applied":
+                                    applied_ids.append(req["decisionId"])
+                            except HTTPError as error:
+                                # The engine can log a new request before its worker publishes it.
+                                try:
+                                    if error.code != 409 or json.loads(error.read())["error"] != "unknown_decision":
+                                        raise
+                                finally:
+                                    error.close()
+                        if len(applied_ids) >= args.restart_app_after:
+                            restart_ids = applied_ids[:args.restart_app_after]
+                            app.terminate(); app.wait(timeout=5)
+                            app_log.write("APP_RESTART\n"); app_log.flush()
+                            app = subprocess.Popen([*app_command, "--bridge-config", str(config), "--card-data", args.data],
+                                                   cwd=ROOT / "JevApp", stdout=app_log, stderr=app_log, env=child_env)
+                            processes.append(app)
+                    time.sleep(.1)
+                native_code = native_process.wait()
+            text = native_path.read_text(encoding="utf-8", errors="replace")
             summary = next((json.loads(line[8:]) for line in text.splitlines() if line.startswith("SUMMARY ")), None)
             records = [] if summary is None else [bridge.get(r["decisionId"]) for r in summary["requests"]]
             checks = scenario_checks(summary, records, args.scenario, text, (output / "app.log").read_text(encoding="utf-8"))
+            restart_evidence = None
+            if args.restart_app_after:
+                after_restart = (output / "app.log").read_text(encoding="utf-8").partition("APP_RESTART\n")[2]
+                questions = [json.loads(line[9:]) for line in after_restart.splitlines() if line.startswith("QUESTION ")]
+                restored_ids = questions[0]["historyDecisionIds"] if questions else []
+                checks.update(separate_app_process_restarted=bool(restart_ids),
+                              applied_history_restored_after_restart=bool(restart_ids) and set(restart_ids).issubset(restored_ids))
+                restart_evidence = {"appliedBeforeRestart": restart_ids, "firstProviderHistoryAfterRestart": restored_ids}
             if args.ui_waits_for_input and summary is not None:
                 checks.update(submitted_input_busy_released=summary["submittedUiBusyOverrides"] > 0,
                               no_submitted_input_ui_wait=summary["submittedUiBusyCalls"] == 0)
@@ -193,10 +244,11 @@ def main():
                               cpu_counter_actors_known=all(counts[2] == 0 for counts in summary["cpuEvaluatorCalls"].values()))
                 if args.scenario == "basic" and args.decisions >= 16:
                     checks["other_cpu_proves_counters_active"] = sum(counts[0] for counts in summary["cpuEvaluatorCalls"].values()) > 0
-            exit_code = completed.returncode if completed.returncode else (0 if all(checks.values()) else 4)
+            exit_code = native_code if native_code else (0 if all(checks.values()) else 4)
             scope = "isolated normal duel; production decoder/controller/worker and Hook<T> with host view/SysAct adapters" if args.loader else "isolated normal duel, production decoder/controller/worker, no UI or injected hook"
             evidence = {"scope": scope, "loaderSha256": hashlib.sha256(Path(args.loader).read_bytes()).hexdigest() if args.loader else None,
                         "provider": args.provider, "scenario": args.scenario, "exitCode": exit_code, "sourceHashes": source_hashes,
+                        "serverExecutableSha256": server_hash, "appRestart": restart_evidence,
                         "hostCompileSources": sources,
                         "native": summary, "bridgeRecords": records, "scenarioChecks": checks}
             (output / "result.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")

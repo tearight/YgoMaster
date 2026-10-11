@@ -53,7 +53,8 @@ class ScenarioProvider:
                 selected = "yesno_1"
             elif "phase_5" in keys:
                 selected = "phase_5"
-        print("QUESTION " + json.dumps({"selection": state["selection"], "criteria": criteria, "chosen": selected}, ensure_ascii=False), flush=True)
+        print("QUESTION " + json.dumps({"selection": state["selection"], "criteria": criteria, "chosen": selected,
+                                       "historyDecisionIds": [item["decisionId"] for item in state["appliedDecisions"]]}, ensure_ascii=False), flush=True)
         return ProviderChoice(selected, "mock", "scenario-fixture-test-only")
 
 
@@ -61,7 +62,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bridge-config", required=True)
     parser.add_argument("--card-data", required=True)
-    parser.add_argument("--scenario", choices=("discard-two", "twin-target", "chain-cost", "deck-order"), required=True)
+    parser.add_argument("--scenario", choices=("basic", "discard-two", "twin-target", "chain-cost", "deck-order"), required=True)
     args = parser.parse_args()
     DecisionApp(BridgeClient(args.bridge_config), ScenarioProvider(args.scenario), CardCatalog.from_game(args.card_data),
                 TextCatalog.from_game(args.card_data)).run()

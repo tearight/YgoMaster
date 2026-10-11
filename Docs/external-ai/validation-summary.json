@@ -1,7 +1,7 @@
 {
   "date": "2026-10-11",
   "status": "in_progress",
-  "bridgeAppTestsPassed": 12,
+  "bridgeAppTestsPassed": 14,
   "inputSessionChecksPassed": true,
   "cardCatalogCount": 14323,
   "realJevVerified": false,
@@ -591,6 +591,105 @@
         "sourceActivationLinked": true,
         "privateDeckOrderSentToApp": false
       }
+    },
+    {
+      "scenario": "app-restart-native-hook-ui",
+      "provider": "mock",
+      "exitCode": 0,
+      "normalInitialization": true,
+      "nativeConsumed": 8,
+      "serverApplied": 8,
+      "targetPlayerType": 0,
+      "gameProcessInjected": false,
+      "scope": "isolated normal duel; production decoder/controller/worker and Hook<T> with host view/SysAct adapters",
+      "nativeHookCount": 11,
+      "nativeSysActCalls": 420,
+      "originalViewCalls": 48,
+      "suppressedUiInputs": 8,
+      "submittedUiBusyOverrides": 8,
+      "submittedUiBusyCalls": 0,
+      "cpuEvaluatorCalls": {
+        "main": [
+          0,
+          0,
+          0
+        ],
+        "battle": [
+          0,
+          0,
+          0
+        ],
+        "timing": [
+          0,
+          0,
+          0
+        ],
+        "other": [
+          0,
+          0,
+          0
+        ],
+        "dialog": [
+          11,
+          0,
+          0
+        ]
+      },
+      "loaderSha256": "6185540596e65967d75b7183d5c4657d86363ce6b2d0b3a39693b28d29a0495c",
+      "sourceHashes": {
+        "ExternalAi/Protocol.cs": "9dc8c8cdc94f4cd5ec51ab89270c426dc04b112bef1ef7409278a46c2f376d88",
+        "ExternalAi/BridgeConfig.cs": "b0540597dfa5b578bec6c72306ccd19c17f5b1d29ecfa21c08d50575b0f7a470",
+        "YgoMasterServer/Lib/MiniJSON.cs": "81b7dcd00416826012c4d8f58a8822de887cf7232f0eb0a016313a3d9076c6a2",
+        "YgoMasterServer/Enums/Duel.cs": "114227c696e99d47d4186f45c493df25e2312375a2e3de36c07d2a637ec2829b",
+        "YgoMasterServer/Enums/Misc.cs": "e214bda318c4330b1d018ebf9998f3c4a70b891b7d20f7acb0b7a77e08dfcdad",
+        "YgoMasterClient/ExternalAi/EngineProfile.cs": "504e801e7a0582c33d6be791e5b3f23d8b89e873739b54debdd4d54227dc3a25",
+        "YgoMasterClient/ExternalAi/InputSession.cs": "9fa1ca856d98514456886a68239b51b5413a02d74642ef505e2c394323d91e69",
+        "YgoMasterClient/ExternalAi/BridgeWorker.cs": "bf1033e8ea09e28db742f6415142a8fd62eff35e33a3480cd285d7d15c06781d",
+        "YgoMasterClient/DuelDll.ExternalAi.cs": "4c86aac7e82ace50788e4972ff8c570b3b71e96b85cc9a99947c376c23a2188f",
+        "YgoMasterClient/Hook.cs": "dc8c9fcea9bf72b3a591719b2524d13446cee436e5a42958b9de31fbee1a475e",
+        "tests/ExternalAi/HookHost.cs": "981288561175554b02a6d3771126b86c413fd0da76fc4c4d1fdb333b893118fb",
+        "tests/ExternalAi/NativeHost.cs": "870826fde8d815fe430f7a10ba32a6aa5325fece748b15e5e55ee9c651bdc4b1",
+        "JevApp/jev_app/__init__.py": "125ca90341bc4930d8d5f287ee2c080cf608ae52b51a83c7253d1fe4336c5ee5",
+        "JevApp/jev_app/__main__.py": "7f84dff60dfb76a77dac5d821bbb6d287f851a62d178f892b78529976ddf9c09",
+        "JevApp/jev_app/app.py": "9496621c9b0fa8246231927b085b2d6eda2e00faea837e181e90f3abfed5b0d4",
+        "JevApp/jev_app/bridge.py": "f1afc4c3d1c662f28be95a30da7d395a7dcbe9d572f41bcd68b506ea8682a6e5",
+        "JevApp/jev_app/choices.py": "31388c3e96d3787d27c99c8f8c68e200326a899e4ae8293dec888237c85368ca",
+        "JevApp/jev_app/context.py": "820132ab2ac76d9d61a6e0c969c6390eb482e463e7e33fb51e173d4d7dc292d2",
+        "JevApp/jev_app/metadata.py": "34b33d4e82edb058cc3c1af12d20fbd941b12170defff3361ca16d81c1ecbf06",
+        "JevApp/jev_app/protocol.py": "991c4624c7f10de787dfe8e3beb21a0cf35a4aac2ae727e339874768305e4a8d",
+        "JevApp/jev_app/provider.py": "6fc959b15b648ebd4a0b4ceb216c7e7af9bfa2084a876e9f4e2b1c1def3e222d",
+        "tests/ExternalAi/ScenarioApp.py": "08f7af75d977c74ab0c32b9d3aa918ca5bb349b33031a6382481550c40e35e52",
+        "tools/external-ai/run-dll-scenarios.py": "31597071ad59c0ed043f61372fd4ed3a04294903dcb6f59f97318f6a36cea177",
+        "YgoMasterClient/DuelDll.cs": "5d0f257553793e0ae0016d501e3bdc252ca4ea7857acfff91f50dbf5187bc318",
+        "YgoMasterServer/ExternalAi/DecisionStore.cs": "4386ca732137e135bb2c6cd8395a383a34ae268dedcc07eacf32ffa368bcf93c",
+        "YgoMasterServer/ExternalAi/DecisionBridge.cs": "980c69fef36c8ee01d00384ae010eb7a2bd77e5321270c7efb02260e9cf6c46f",
+        "YgoMasterServer/Program.cs": "ffea00657a4b15c6c6cb5c42615dc46947e7793224f303847dd844426c1fceac"
+      },
+      "serverExecutableSha256": "8e6f1fb8bf222d09496fb6a26f9edc02c379bda1e5605c0e2481215ad463002b",
+      "scenarioChecks": {
+        "separate_app_process_restarted": true,
+        "applied_history_restored_after_restart": true,
+        "submitted_input_busy_released": true,
+        "no_submitted_input_ui_wait": true,
+        "real_native_hooks_installed": true,
+        "native_sysact_intercepted": true,
+        "competing_ui_input_suppressed": true,
+        "view_callbacks_preserved": true,
+        "target_cpu_evaluators_not_entered": true,
+        "cpu_counter_actors_known": true
+      },
+      "appRestart": {
+        "appliedBeforeRestart": [
+          "280220a382834ea1aaa328867da69f3d",
+          "d3b34ff2540d4a8eab53969262142364",
+          "3a6c9d08a6164c3283fb44a9aa8269ba"
+        ],
+        "firstProviderHistoryAfterRestart": [
+          "280220a382834ea1aaa328867da69f3d",
+          "d3b34ff2540d4a8eab53969262142364",
+          "3a6c9d08a6164c3283fb44a9aa8269ba"
+        ]
+      }
     }
   ],
   "textCatalogCounts": {
@@ -676,5 +775,14 @@
       "tools/external-ai/run-dll-scenarios.py": "46ee1c5e9335313e0efca598518d811bbc5c200c4ed3510826d14af5626fea2f",
       "YgoMasterClient/DuelDll.cs": "5d0f257553793e0ae0016d501e3bdc252ca4ea7857acfff91f50dbf5187bc318"
     }
+  },
+  "appRestartContextVerified": true,
+  "orderedAppliedHistoryVerified": true,
+  "restoredHistoryBounds": {
+    "maxRecords": 64,
+    "maxResponseBytes": 1048576,
+    "sameDuelGenerationActorOnly": true,
+    "appliedBeforeCurrentSequenceOnly": true,
+    "persistentAfterServerRestart": false
   }
 }

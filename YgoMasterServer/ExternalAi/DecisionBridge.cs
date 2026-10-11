@@ -64,6 +64,7 @@ namespace YgoMaster.ExternalAi
                 string method = context.Request.HttpMethod;
                 object result;
                 if (method == "GET" && path == "/v1/pending") result = new Dictionary<string, object> { {"records", store.Pending(now)} };
+                else if (method == "GET" && path.StartsWith("/v1/context/", StringComparison.Ordinal)) result = store.Context(path.Substring("/v1/context/".Length), now);
                 else if (method == "GET" && path.StartsWith("/v1/requests/", StringComparison.Ordinal)) result = store.Get(path.Substring(13), now);
                 else if (method == "POST" && path == "/v1/requests") result = store.Publish(Body(context.Request), now);
                 else if (method == "POST" && path == "/v1/decisions") result = store.Submit(Body(context.Request), now);

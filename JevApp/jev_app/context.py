@@ -29,7 +29,23 @@ class DuelContext:
         observation = visible_observation(request["observation"])
         return {"actor": request["actor"], "duel": observation,
                 "selection": observation.get("selectionContext", {"role": "unknown", "parentDecisionId": None}),
-                "appliedDecisions": list(duel["history"])}
+                "appliedDecisions": list(duel["history"]), "appliedHistoryLimited": True}
+
+    def restore(self, request, snapshot):
+        if snapshot.get("protocolVersion") != 1 or any(snapshot.get(key) != request[key] for key in ("duelId", "duelGeneration", "actor")):
+            raise ValueError("invalid_context_identity")
+        if type(snapshot.get("ended")) is not bool or type(snapshot.get("historyLimited")) is not bool:
+            raise ValueError("invalid_context_status")
+        if snapshot["ended"]:
+            self.end(request["duelId"], request["duelGeneration"])
+            return False
+        self.update(request)
+        for record in snapshot["records"]:
+            prior = record["request"]
+            if record["state"] != "applied" or any(prior[key] != request[key] for key in ("duelId", "duelGeneration", "actor")) or prior["requestSequence"] >= request["requestSequence"]:
+                raise ValueError("invalid_context_history")
+            self.acknowledge(record)
+        return True
 
     def acknowledge(self, record):
         request = record["request"]
@@ -38,8 +54,8 @@ class DuelContext:
             duel = self.duels[key]
             if request["decisionId"] not in duel["applied"]:
                 duel["applied"].add(request["decisionId"])
-                selected = set(record["decision"]["actionIds"])
-                actions = deepcopy([c for c in request["choices"] if c["actionId"] in selected])
+                by_id = {choice["actionId"]: choice for choice in request["choices"]}
+                actions = deepcopy([by_id[action_id] for action_id in record["decision"]["actionIds"]])
                 for action in actions:
                     action["cardReferences"] = visible_observation({"cards": action["cardReferences"]})["cards"]
                 duel["history"].append({"decisionId": request["decisionId"], "requestKind": request["requestKind"],

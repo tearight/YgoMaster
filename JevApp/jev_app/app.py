@@ -35,6 +35,10 @@ class DecisionApp:
         decision_id = request["decisionId"]
         self.transition(decision_id, "received")
         self.transition(decision_id, "building")
+        if (request["duelId"], request["duelGeneration"]) not in self.context.duels:
+            if not self.context.restore(request, self.bridge.context(decision_id)):
+                self.transition(decision_id, "cancelled", "duel_ended")
+                return
         state = self.context.update(request)
         for card in state["duel"].get("cards", []):
             if card.get("identityVisible") is True:
@@ -96,6 +100,9 @@ class DecisionApp:
             record = self.bridge.get(decision_id)
             if record["state"] in TERMINAL:
                 self.context.acknowledge(record)
+                if record["state"] == "cancelled" and record.get("reason") in ("duel_end", "new_generation"):
+                    req = record["request"]
+                    self.context.end(req["duelId"], req["duelGeneration"])
                 self.transition(decision_id, "done" if record["state"] == "applied" else record["state"])
                 self.responses.pop(decision_id, None)
             elif record["state"] == "pending" and decision_id in self.responses:
